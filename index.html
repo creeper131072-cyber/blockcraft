@@ -295,6 +295,8 @@ body.touch #hotbar{pointer-events:auto}
     <h2>ワールド</h2>
     <button class="btn green" id="btnNew">新しく作成</button>
     <div class="wlist" id="wlist"></div>
+    <h2 class="small" id="mpHeading" hidden>マルチプレイ</h2>
+    <div class="wlist" id="mplist"></div>
     <button class="btn" id="btnImport">ファイルから読み込む</button><input type="file" id="importFile" accept=".bcworld,application/json,application/gzip,.mcworld,.zip,application/zip" hidden>
     <button class="btn" id="btnWorldsBack">戻る</button>
   </div>
@@ -13341,6 +13343,31 @@ function joinServer(addr) {
   if (!addr) { $('sErr').textContent = 'サーバーのアドレスを入れてください'; return; }
   $('sErr').textContent = ''; rememberServer(addr, {}); startRemote(addr, name);
 }
+// 「プレイ」のワールド一覧から、覚えているマルチプレイのサーバーにもそのまま入れるようにする
+function joinRememberedServer(addr) {
+  let name = ''; try { name = (localStorage.getItem('bc_name') || '').trim(); } catch (e) { }
+  if (!/^[\w぀-ヿ㐀-鿿\-]{1,16}$/.test(name)) { show('servers'); renderServerList(); $('sAddr').value = addr; $('sErr').textContent = '名前を入れて「参加」を押してください'; $('sName').focus(); return; }
+  rememberServer(addr, {}); startRemote(addr, name);
+}
+function renderWorldsServerSection() {
+  const heading = $('mpHeading'), list = $('mplist'); if (!list) return; list.innerHTML = '';
+  const servers = getServers();
+  heading.hidden = !servers.length;
+  for (const s of servers) {
+    const it = el('div', 'witem'), g = el('div', 'grow');
+    g.appendChild(el('div', 'wname', s.name || s.addr));
+    const sub = el('div', 'wsub', s.world ? `ワールド「${s.world}」・${s.players ?? '?'}/${s.max ?? '?'} 人` : '確認中…');
+    g.appendChild(sub);
+    it.onclick = () => joinRememberedServer(s.addr);
+    it.append(g); list.appendChild(it);
+    let done = false; const ctrl = new AbortController(); setTimeout(() => { if (!done) ctrl.abort(); }, 4000);
+    fetch(serverHttpUrl(s.addr), { signal: ctrl.signal }).then(r => r.json()).then(i => {
+      done = true; sub.classList.remove('offline');
+      sub.textContent = `ワールド「${i.world}」・${i.players}/${i.max} 人${i.approval ? '・入るには許可が必要' : ''}`;
+      rememberServer(s.addr, { name: i.name, world: i.world, players: i.players, max: i.max });
+    }).catch(() => { done = true; sub.textContent = 'つながりません（止まっているかも）'; sub.classList.add('offline'); });
+  }
+}
 function onRemoteMsg(m) {
   if (m.t === 'wait') { $('loadMsg').textContent = m.text; return true; }
   if (m.t === 'denied') { G.discMsg = m.reason; showDisconnected(m.reason); return true; }
@@ -15252,6 +15279,7 @@ $('btnSettingsBack').onclick = closeSettings;
 async function showWorlds() {
   G.state = 'worlds'; show('worlds');
   const list = $('wlist'); list.innerHTML = '';
+  renderWorldsServerSection();
   const ws = (await DB.all('worlds').catch(() => [])).sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0));
   if (!ws.length) { list.appendChild(el('div', 'empty', 'ワールドがありません。「新しく作成」から始めましょう。')); return; }
   for (const w of ws) {
