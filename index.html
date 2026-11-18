@@ -165,6 +165,8 @@ body{background:transparent}
 body.tvmode{pointer-events:none}body.tvmode #gl{pointer-events:none}body.tvmode #tvlayer{pointer-events:auto}body.tvmode .tvbox{pointer-events:auto}
 #tvback{position:fixed;left:50%;top:8px;transform:translateX(-50%);display:none;z-index:30;pointer-events:auto}body.tvmode #tvback{display:block}
 #tvdlg{position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);background:rgba(0,0,0,.85);padding:16px;display:none;flex-direction:column;gap:8px;width:min(90vw,480px);pointer-events:auto}#tvdlg.show{display:flex}#tvdlg input{background:#222;color:#fff;border:1px solid #666;padding:6px;font-family:inherit}#tvdlg small{color:#bbb;font-size:12px}#tvdlg div:last-child{display:flex;gap:8px}
+#signdlg{position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);background:rgba(0,0,0,.85);padding:16px;display:none;flex-direction:column;gap:8px;width:min(90vw,360px);pointer-events:auto}#signdlg.show{display:flex}#signdlg textarea{background:#222;color:#fff;border:1px solid #666;padding:6px;font-family:inherit;resize:none;height:72px}#signdlg div:last-child{display:flex;gap:8px}
+#signtags{position:absolute;inset:0;pointer-events:none;overflow:hidden}.signtag{position:absolute;transform:translate(-50%,-100%);background:rgba(0,0,0,.4);color:#fff;padding:2px 6px;font-size:12px;white-space:pre-line;text-align:center;max-width:160px}
 .bdlg{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);background:#48494a;border:2px solid #1e1e1f;box-shadow:inset 2px 2px 0 #6d6d6e,inset -2px -2px 0 #333334;padding:14px;display:none;flex-direction:column;gap:9px;width:min(calc(100vw - 32px),640px);max-height:calc(100vh - 24px);overflow:auto;z-index:40;color:#fff}
 .bdlg.show{display:flex}.bdlg h3{margin:0;text-align:center;font-size:18px}
 .bdlg label,.bdlg .lbl{display:flex;flex-direction:column;gap:3px;font-size:13px;font-weight:700}.bdlg label.chk{flex-direction:row;align-items:center;gap:6px}
@@ -194,6 +196,11 @@ html.tvself #clickplay{display:none!important}
 @keyframes fireflick{from{opacity:.7}to{opacity:1}}
 #hud.wither .heart{filter:grayscale(1) brightness(.35)}
 #portalfx{position:absolute;inset:0;pointer-events:none;opacity:0;background:radial-gradient(circle,rgba(150,40,230,.35),rgba(110,20,200,.85))}
+#darkov{position:absolute;inset:0;pointer-events:none;opacity:0;background:#000;transition:opacity .3s}
+#scopefx{position:fixed;inset:0;pointer-events:none;opacity:0;z-index:40;background:radial-gradient(circle at 50% 50%,transparent 0 27%,#000 38%);transition:opacity .08s}
+#scopefx i{position:absolute;left:50%;top:8%;bottom:8%;width:2px;background:rgba(0,0,0,.9);transform:translateX(-50%)}
+#scopefx b{position:absolute;top:50%;left:8%;right:8%;height:2px;background:rgba(0,0,0,.9);transform:translateY(-50%)}
+#scopefx span{position:fixed;left:50%;bottom:14%;transform:translateX(-50%);color:#fff;font-weight:800;text-shadow:1px 1px 0 #000;font-size:14px}
 #touchui{display:none;position:absolute;inset:0}
 #touchui.show{display:block}
 #tzone{position:absolute;left:0;bottom:0;width:40%;height:65%;pointer-events:auto}
@@ -226,10 +233,14 @@ body.touch #hotbar{pointer-events:auto}
 <div id="hud">
   <div id="underwater"></div>
   <div id="portalfx"></div>
+  <div id="darkov"></div>
+  <div id="scopefx"><i></i><b></b><span></span></div>
   <div id="fireov"></div>
   <div id="fxhud"></div>
   <div id="ttl"><div id="ttlmain"></div><div id="ttlsub"></div></div><div id="ttlbar"></div>
   <div id="tvdlg"><div class="mc">テレビに映すページ</div><input id="tvurlin" type="text" maxlength="2048" placeholder="https://..."><small>YouTube の動画の URL も使えます。埋め込みを許可していないサイト（Google や多くの SNS）は映りません。</small><div><button class="btn small green" id="tvok">映す</button><button class="btn small" id="tvclear">消す</button><button class="btn small" id="tvcancel">やめる</button></div></div>
+  <div id="signdlg"><div class="mc">看板の文字</div><textarea id="signtxt" maxlength="100" placeholder="書きたい文字を入れてください"></textarea><div><button class="btn small green" id="signok">書く</button><button class="btn small" id="signclear">消す</button><button class="btn small" id="signcancel">やめる</button></div></div>
+  <div id="signtags"></div>
   <button id="tvback" class="btn small">ゲームに戻る（Esc）</button>
   <div id="nametags"></div>
   <div id="bossbar"><span></span><b><i></i></b></div>
@@ -1564,6 +1575,10 @@ const DIMS = [
   { id: 0, name: 'overworld', jp: 'オーバーワールド', minY: -64, maxY: 319, floor: -104, voidY: -82 },
   { id: 1, name: 'nether', jp: 'ネザー', minY: 0, maxY: 127, floor: -40, voidY: -40 },
   { id: 2, name: 'the_end', jp: 'ジ・エンド', minY: 0, maxY: 255, floor: -40, voidY: -40 },
+  // 3: リプレイアドオンの見学用ディメンション（本物のワールドとは別の使い捨ての世界）。
+  // サーバー側スクリプトはブラウザでは実行されない（クライアントはこの shared だけを読む）ので、
+  // ここ shared 側に書かないとクライアントの DIMS[3] が undefined のままになり、見学中に落ちる
+  { id: 3, name: 'replay', jp: 'リプレイ', minY: -64, maxY: 319, floor: -104, voidY: -82 },
 ];
 
 /* ---------- チャンクの集まり（サーバーとクライアントで共通） ---------- */
@@ -3649,6 +3664,9 @@ if (ITEMS['alltestaddon:car']) {
   registerEntity({ format_version: '1.21.0', 'minecraft:entity': { description: { identifier: 'alltestaddon:car' }, components: { 'minecraft:health': { value: 8, max: 8 }, 'minecraft:collision_box': { width: 1.6, height: 1.3 }, 'minecraft:movement': { value: 0 }, 'minecraft:type_family': { family: ['car', 'inanimate'] } } } });
   Object.assign(MOBS['alltestaddon:car'], { still: true, car: true, jp: '車' });
 }
+// トロッコ・ボート（乗り物。見た目は main、置く・乗る・動かすのは server 側で扱う）
+MOBS.minecart = { name: 'minecart', jp: 'トロッコ', hp: 6, speed: 0, w: 0.98, h: 0.7, dmg: 0, hostile: false, family: ['inanimate'], still: true, vehicle: 'cart', def: { description: {} } };
+MOBS.boat = { name: 'boat', jp: 'ボート', hp: 6, speed: 0, w: 1.375, h: 0.5625, dmg: 0, hostile: false, family: ['inanimate'], still: true, vehicle: 'boat', def: { description: {} } };
 // ホワイトボードの絵（32×32、16 色の番号を 1 文字ずつ。0 は白）
 const WB_N = 32, WB_COLORS = ['#ffffff', '#1e1e24', '#e03030', '#ff8a1c', '#ffd24a', '#40c040', '#2fa0e0', '#3050e0', '#9040d0', '#ff70b0', '#8a5a30', '#8a8a96', '#c8c8d0', '#105a20', '#60e0e0', '#ffe0c0'];
 const portalKey = (d, x, y, z) => d + '|' + x + '|' + y + '|' + z;
@@ -5420,8 +5438,8 @@ for (const [n, tex, hard, tool, use, be, emit] of [
   ['bee_nest', XFRONT('bee_nest_front', 'bee_nest_side', 'bee_nest_top', 'bee_nest_bottom'), 0.3, AXE, null, null],
   ['chiseled_bookshelf', XFRONT('chiseled_bookshelf_empty', 'chiseled_bookshelf_side', 'chiseled_bookshelf_top'), 1.5, AXE, null, null],
   ['jukebox', XTOP('jukebox_top', 'jukebox_side'), 2, AXE, 'jukebox', 'jukebox'],
-  ['respawn_anchor', XTOP('respawn_anchor_top', 'respawn_anchor_side', 'respawn_anchor_bottom'), 50, PICK, null, null],
-  ['lodestone', XTOP('lodestone_top', 'lodestone_side'), 3.5, PICK, null, null],
+  ['respawn_anchor', XTOP('respawn_anchor_top', 'respawn_anchor_side', 'respawn_anchor_bottom'), 50, PICK, 'anchor', null],
+  ['lodestone', XTOP('lodestone_top', 'lodestone_side'), 3.5, PICK, 'lodestone', null],
   ['target', XTOP('target_top', 'target_side'), 0.5, null, null, null],
   ['crafter', XTOP('crafter_top', 'crafter_side', 'crafter_bottom'), 1.5, PICK, 'crafting_table', null],
   ['vault', XTOP('vault_top', 'vault_side', 'vault_bottom'), 50, PICK, null, null],
@@ -5444,7 +5462,7 @@ xb('lectern', XSH(XTOP('lectern_top', 'lectern_sides', 'oak_planks'), 2.5, AXE, 
 xb('grindstone', XSH(XTOP('grindstone_side', 'grindstone_pivot'), 2, PICK, 'stone', { cat: 'items', facing: true }), 'grindstone');
 xb('stonecutter_block', XSH(XTOP('stonecutter_top', 'stonecutter_side', 'stonecutter_bottom'), 3.5, PICK, 'stone', { cat: 'items', use: 'crafting_table' }), 'box', [0, 0, 0, 16, 9, 16]);
 xb('bell', XSH(XTOP('bell_top', 'bell_side', 'bell_bottom'), 5, PICK, 'metal', { cat: 'items', use: 'bell', facing: true }), 'bell');
-xb('composter', XSH(XTOP('composter_top', 'composter_side', 'composter_bottom'), 0.6, AXE, 'wood', { cat: 'items' }), 'tub', 2);
+xb('composter', XSH(XTOP('composter_top', 'composter_side', 'composter_bottom'), 0.6, AXE, 'wood', { cat: 'items', use: 'composter' }), 'tub', 2);
 xb('cauldron', XSH(XTOP('cauldron_top', 'cauldron_side', 'cauldron_bottom'), 2, PICK, 'metal', { cat: 'items' }), 'tub', 2);
 xb('campfire', XSH(XTOP('campfire_log', 'campfire_log'), 2, AXE, 'wood', { cat: 'items', emit: 15, facing: true }), 'campfire');
 xb('soul_campfire', XSH(XTOP('soul_campfire_log', 'soul_campfire_log'), 2, AXE, 'wood', { cat: 'items', emit: 10, facing: true }), 'campfire');
@@ -5452,7 +5470,7 @@ xb('lantern', XSH('lantern', 3.5, PICK, 'lantern', { emit: 15, cat: 'items', gro
 xb('soul_lantern', XSH('soul_lantern', 3.5, PICK, 'lantern', { emit: 10, cat: 'items', group: 'lantern' }), 'lantern');
 xb('soul_torch', { geo: 'torch', tex: 'soul_torch', rm: 'alpha_test', hard: 0, emit: 10, collide: false, face: true, cat: 'items', filter: { faces: ['up', 'side'] }, snd: 'wood' });
 xb('iron_chain', XSH('iron_chain', 5, PICK, 'chain', { cat: 'items', group: 'chain' }), 'chain');
-xb('beacon', { geo: 'shape', tex: 'beacon', rm: 'alpha_test', hard: 3, snd: 'glass', emit: 15, collide: true, cat: 'items' }, 'beacon');
+xb('beacon', { geo: 'shape', tex: 'beacon', rm: 'alpha_test', hard: 3, snd: 'glass', emit: 15, collide: true, cat: 'items', use: 'beacon', be: 'beacon' }, 'beacon');
 xb('conduit', XSH('conduit', 3, PICK, 'stone', { cat: 'items', emit: 15 }), 'box', [5, 5, 5, 11, 11, 11]);
 xb('heavy_core', XSH('heavy_core', 10, PICK, 'metal', { cat: 'items' }), 'box', [4, 0, 4, 12, 8, 12]);
 xb('decorated_pot', XSH(XTOP('decorated_pot_top', 'decorated_pot_side', 'decorated_pot_bottom'), 0, null, 'stone', { cat: 'items', facing: true }), 'box', [1, 0, 1, 15, 16, 15]);
@@ -5569,7 +5587,7 @@ for (const [n, eff, d, dl, ds, sa] of [['invisibility', 'invisibility', 3600, 96
   POTION_JP[n] = jp;
   for (const pre of ['', 'splash_']) {
     const base = { eff, amp: n === 'turtle_master' ? 3 : 0, col: EFFECTS[eff].col, kind: n, splash: !!pre };
-    POTIONS[pre + 'potion_' + n] = Object.assign({ dur: d }, base); if (dl) POTIONS[pre + 'potion_long_' + n] = Object.assign({ dur: dl, long: true }, base); if (ds) POTIONS[pre + 'potion_strong_' + n] = Object.assign({ dur: ds, strong: true }, base, { amp: 5 });
+    POTIONS[pre + 'potion_' + n] = Object.assign({ dur: d }, base); if (dl) POTIONS[pre + 'potion_long_' + n] = Object.assign({ dur: dl, long: true }, base); if (ds) POTIONS[pre + 'potion_strong_' + n] = Object.assign({ dur: ds, strong: true }, base, { amp: n === 'turtle_master' ? 3 : 5 });
   }
 }
 // 残留ポーションと効能付きの矢: 今あるポーションごとに 1 つずつ
@@ -5627,7 +5645,14 @@ function xShape(id, k, st, nb) {
     case 'slab': { const s = st & 3; return [s === 2 ? [0, 0, 0, 16, 16, 16] : s === 1 ? [0, 8, 0, 16, 16, 16] : [0, 0, 0, 16, 8, 16]]; }
     case 'carpet': return [[0, 0, 0, 16, 1, 16]];
     case 'flat': return [[0, 0, 0, 16, 1, 16]];
-    case 'rail': return [[0, 0, 0, 16, 1, 16]];
+    case 'rail': {
+      const sv = st & 15;
+      if (sv === 2) return [[0, 0, 0, 8, 1, 16], [8, 8, 0, 16, 9, 16]];
+      if (sv === 3) return [[8, 0, 0, 16, 1, 16], [0, 8, 0, 8, 9, 16]];
+      if (sv === 4) return [[0, 0, 8, 16, 1, 16], [0, 8, 0, 16, 9, 8]];
+      if (sv === 5) return [[0, 0, 0, 16, 1, 8], [0, 8, 8, 16, 9, 16]];
+      return [[0, 0, 0, 16, 1, 16]];
+    }
     case 'fence': {
       const out = [[6, 0, 6, 10, 16, 10]];
       if (nb) for (const d of HDIR) if (xConn(id, nb(DX[d], 0, DZ[d]))) {
@@ -5696,7 +5721,12 @@ function xShape(id, k, st, nb) {
     case 'lectern': return XRB([[0, 0, 0, 16, 2, 16], [4, 2, 4, 12, 13, 12], [0, 12, 2, 16, 16, 14]], QL[st & 3]);
     case 'grindstone': return XRB([[4, 4, 2, 12, 16, 14], [2, 0, 6, 4, 13, 10], [12, 0, 6, 14, 13, 10]], QL[st & 3]);
     case 'bell': return XRB([[5, 4, 5, 11, 11, 11], [4, 4, 4, 12, 6, 12], [7, 11, 7, 9, 13, 9], [2, 13, 7, 14, 15, 9], [0, 0, 7, 2, 16, 9], [14, 0, 7, 16, 16, 9]], QL[st & 3]);
-    case 'tub': return [[0, 0, 0, 16, 3, 16], [0, 3, 0, 16, 16, 2], [0, 3, 14, 16, 16, 16], [0, 3, 2, 2, 16, 14], [14, 3, 2, 16, 16, 14]];
+    case 'tub': {
+      const out = [[0, 0, 0, 16, 3, 16], [0, 3, 0, 16, 16, 2], [0, 3, 14, 16, 16, 16], [0, 3, 2, 2, 16, 14], [14, 3, 2, 16, 16, 14]];
+      if (id === B.cauldron) { const lv = st & 3; if (lv) out.push([2, 3, 2, 14, 3 + lv * 3, 14, TEXF[B.water * 6], 0x3F76E4]); }
+      else if (id === B.composter) { const lv = st & 15; if (lv) out.push([2, 3, 2, 14, Math.min(16, 3 + lv * 1.6), 14, TEXF[id * 6 + 2], 0xFFFFFF]); }
+      return out;
+    }
     case 'campfire': { const T = TEXF[id * 6 + 2]; return XRB([[1, 0, 3, 15, 4, 7], [1, 0, 9, 15, 4, 13], [3, 3, 1, 7, 7, 15], [9, 3, 1, 13, 7, 15], [5, 0, 5, 11, 1, 11, TEXF[B.fire * 6 + 2], 0xFFFFFF]], QL[st & 3]); }
     case 'beacon': return [[0, 0, 0, 16, 16, 16], [2, 0, 2, 14, 3, 14, TEXF[B.obsidian * 6], 0xFFFFFF], [4, 3, 4, 12, 13, 12, TEXF[B.sea_lantern * 6], 0xFFFFFF]];
     case 'statue': return XRB([[4, 0, 4, 12, 10, 12], [3, 10, 3, 13, 16, 13], [7, 16, 7, 9, 18, 9]], QL[st & 3]);
@@ -5959,6 +5989,19 @@ xshaped('activator_rail', ['ISI', 'IRI', 'ISI'], { I: 'iron_ingot', S: 'stick', 
 xshaped('light_weighted_pressure_plate', ['##'], { '#': 'gold_ingot' }); xshaped('heavy_weighted_pressure_plate', ['##'], { '#': 'iron_ingot' }); xless('polished_blackstone_button', ['polished_blackstone'], 1); xshaped('polished_blackstone_pressure_plate', ['##'], { '#': 'polished_blackstone' });
 xshaped('minecart', ['I I', 'III'], { I: 'iron_ingot' }); xless('chest_minecart', ['chest', 'minecart'], 1); xless('hopper_minecart', ['hopper', 'minecart'], 1); xless('tnt_minecart', ['tnt', 'minecart'], 1);
 xshaped('calibrated_sculk_sensor', [' A ', 'ASA'], { A: 'amethyst_shard', S: 'sculk_sensor' });
+/* ===== 座れる椅子（kei さんの依頼、2026-11-13）: 2 ブロック使う。下＝脚+座面（上半分に座れる）、上＝背もたれ =====
+ * 形・当たり判定はクライアントでも必要（物理判定・描画は shared 側で行われるため、ここに置く）。
+ * 状態の下 2 ビットは向き（LOOK 配列、他の向きのあるブロックと同じ）、4 ビット目が立っていれば上側（背もたれ）。 */
+(() => {
+  const SEAT = [[0, 8, 0, 16, 16, 16], [1, 0, 1, 3, 8, 3], [13, 0, 1, 15, 8, 3], [1, 0, 13, 3, 8, 15], [13, 0, 13, 15, 8, 15]];
+  const backOf = st => { const [dx, dz] = LOOK[st & 3]; return dx > 0 ? [[0, 0, 0, 2, 16, 16]] : dx < 0 ? [[14, 0, 0, 16, 16, 16]] : dz > 0 ? [[0, 0, 0, 16, 16, 2]] : [[0, 0, 14, 16, 16, 16]]; };
+  const _shapeOfChair = shapeOf, _collShapeChair = collShape;
+  shapeOf = function (id, st, nb) { return XK[id] === 'chair' ? (st & 4 ? backOf(st) : SEAT) : _shapeOfChair(id, st, nb); };
+  collShape = function (id, st, nb) { return XK[id] === 'chair' ? shapeOf(id, st, nb) : _collShapeChair(id, st, nb); };
+  xb('chair', { geo: 'shape', tex: 'oak_planks', rm: 'alpha_test', hard: 2, tool: AXE, facing: true, collide: true, cat: 'items', group: 'chair', use: 'chair', snd: 'wood', jp: '椅子' }, 'chair');
+  registerBlockItems(); // ここまでの一括登録（5852行目）はもう終わっているので、椅子の分だけ自分でアイテム化する
+})();
+xshaped('chair', ['#', '#'], { '#': TAG('planks') });
 // 不要な仮の名前を消す（上で存在しない材料を使ったものは作られない）
 for (let i = RECIPE_JSON.length - 1; i >= 0; i--) { const r = RECIPE_JSON[i]['minecraft:recipe_shaped'] || RECIPE_JSON[i]['minecraft:recipe_shapeless']; if (!r) continue; const ok = (r.key ? Object.values(r.key) : r.ingredients).every(v => v.tag ? true : XR.has(shortId(v.item))) && XR.has(shortId(r.result.item)); if (!ok) RECIPE_JSON.splice(i, 1); }
 // まだ登録していないレシピを全部登録する（後から足したレシピも、これで使えるようになる）
@@ -6077,6 +6120,7 @@ class Server {
     for (const [k, v] of [['health', 20], ['food', 20], ['sat', 5], ['exh', 0], ['air', 300], ['fall', 0], ['xpL', 0], ['xpP', 0], ['dead', false]]) if (s[k] === undefined) s[k] = v;
     s.armor = [0, 1, 2, 3].map(j => this.fixStack((s.armor || [])[j]));
     s.offhand = this.fixStack(s.offhand);
+    { const a = []; for (let i = 0; i < 27; i++) a.push(this.fixStack((s.ender || [])[i])); s.ender = a; }
     const P = { id: pid, name, display: display || name, rd: clamp(rd | 0 || 8, 2, 32), sent: new Set(), known: new Map(), cursor: null, win: null, s, hurtT: 0, lastDmg: 0, regenT: 0, starveT: 0, lastStats: '' };
     this.players.set(pid, P);
     this.out(pid, { t: 'joined', player: s, world: this.info(), palette: BLOCKS.map(b => b.name) });
@@ -6380,6 +6424,12 @@ class Server {
       return;
     }
     if (use === 'bed') { this.doSleep(P, x, y, z); return; }
+    if (use === 'ender_chest') {
+      this.closeWin(P, false);
+      P.win = { kind: 'chest', cont: s.ender };
+      this.out(P.id, { t: 'open', kind: 'chest', inv: s.inv, cont: P.win.cont, cursor: P.cursor, data: this.winData(P) });
+      return;
+    }
     this.closeWin(P, false);
     if (use === 'crafting_table') P.win = { kind: 'crafting_table', cont: new Array(10).fill(null), pos: [x, y, z] };
     else if (use === 'enchanting_table' || use === 'anvil') P.win = { kind: use, cont: new Array(WINDOWS[use].size).fill(null), pos: [x, y, z] };
@@ -6778,7 +6828,7 @@ class Server {
       for (const P of this.players.values()) if (P.s.dim === dim && Math.max(Math.abs(c.cx - Math.floor(P.s.x / 16)), Math.abs(c.cz - Math.floor(P.s.z / 16))) <= P.rd + 3) { keep = true; break; }
       if (keep) continue;
       const es = this.entsIn(dim, c);
-      if (c.dirty || es.length || c.hadEnts) saves.push(this.saveEntry(dim, c, es));
+      if (dim < 3 && (c.dirty || es.length || c.hadEnts)) saves.push(this.saveEntry(dim, c, es)); // dim 3 はリプレイ見学用の使い捨てディメンション。保存しない
       for (const e of es) this.ents.delete(e.eid);
       w.dropChunk(k, c);
     }
@@ -6790,7 +6840,7 @@ class Server {
     if (this._saving) return this._saving;
     const m = this.meta; m.lastPlayed = Date.now();
     const saves = [];
-    for (const [dim, w] of this.dims) for (const c of w.chunks.values()) { const es = this.entsIn(dim, c); if (c.dirty || es.length || c.hadEnts) { saves.push(this.saveEntry(dim, c, es)); c.dirty = false; } c.hadEnts = es.length > 0; }
+    for (const [dim, w] of this.dims) for (const c of w.chunks.values()) { const es = this.entsIn(dim, c); if (dim < 3 && (c.dirty || es.length || c.hadEnts)) { saves.push(this.saveEntry(dim, c, es)); c.dirty = false; } c.hadEnts = es.length > 0; }
     saves.push(...this.mapFlush());
     this._saving = Promise.all([this.store.put('worlds', m), this.store.putMany('chunks', saves)])
       .catch(e => console.warn('保存に失敗', e))
@@ -6929,7 +6979,13 @@ Object.assign(Server.prototype, {
   doBucket(P, x, y, z) {
     const s = P.s, w = this.world(s.dim), it = s.inv[s.sel];
     if (s.dead || !it || !this.reach(P, x, y, z) || s.gameMode === 'adventure') return;
-    const v = w.getB(x, y, z), id = v & 4095, creative = s.gameMode === 'creative';
+    const v = w.getB(x, y, z), id = v & 4095, st = v >> 12, creative = s.gameMode === 'creative';
+    if (id === B.cauldron) {
+      if (it.id === 'bucket') { if (st !== 3) { this.resend(P, x, y, z); return; } this.setBlock(w, x, y, z, B.cauldron, false); if (!creative) s.inv[s.sel] = { id: 'water_bucket', count: 1 }; }
+      else if (it.id === 'water_bucket') { if (st === 3) { this.resend(P, x, y, z); return; } this.setBlock(w, x, y, z, B.cauldron | (3 << 12), false); if (!creative) s.inv[s.sel] = { id: 'bucket', count: 1 }; }
+      else return;
+      this.sendInv(P); return;
+    }
     if (it.id === 'bucket') {
       if (!isFluid(id) || (v >> 12) !== 0) { this.resend(P, x, y, z); return; }
       this.setBlock(w, x, y, z, 0, false);
@@ -7122,7 +7178,7 @@ Object.assign(Server.prototype, {
   nearestPlayer(e, range, needSurvival) {
     let best = null, bd = range * range;
     for (const P of this.players.values()) {
-      const s = P.s; if (s.dead || s.dim !== e.dim || (needSurvival && !this.survivalLike(s))) continue;
+      const s = P.s; if (s.dead || s.dim !== e.dim || (needSurvival && !this.survivalLike(s)) || this.hasFx(s, 'invisibility')) continue;
       const d = (s.x - e.x) ** 2 + (s.y - e.y) ** 2 + (s.z - e.z) ** 2; if (d < bd) { bd = d; best = P; }
     }
     return best;
@@ -7219,7 +7275,9 @@ Object.assign(Server.prototype, {
     for (const P of this.players.values()) {
       const s = P.s; if (s.dead || s.dim !== a.dim || a.byPlayer === P.id || (a.byPlayer && this.meta.gamerules.pvp === false)) continue;
       if (segAABB(o, d, [s.x - 0.3, s.y, s.z - 0.3, s.x + 0.3, s.y + 1.8, s.z + 0.3]) >= 0) {
-        const sp = Math.hypot(a.vx, a.vy, a.vz); this._from = [a.x - a.vx * 3, a.z - a.vz * 3]; this.mobHit(P, Math.ceil(sp * 2), 'arrow', a.byPlayer ? (this.players.get(a.byPlayer) || {}).display || '' : MOBS.skeleton.jp); this.knock(P, a.vx, a.vz, 0.3); this.ents.delete(a.eid); return;
+        const sp = Math.hypot(a.vx, a.vy, a.vz); this._from = [a.x - a.vx * 3, a.z - a.vz * 3]; this.mobHit(P, Math.ceil(sp * 2), 'arrow', a.byPlayer ? (this.players.get(a.byPlayer) || {}).display || '' : MOBS.skeleton.jp); this.knock(P, a.vx, a.vz, 0.3);
+        { const pot = POTIONS[a.item.id]; if (pot && pot.arrow && pot.eff && !s.dead) this.addEffect(P, pot.eff, pot.amp, pot.dur); }
+        this.ents.delete(a.eid); return;
       }
     }
     const n = Math.ceil(Math.hypot(a.vx, a.vy, a.vz) * 4);
@@ -8092,7 +8150,10 @@ Object.assign(Server.prototype, {
   // ガラス瓶を水に使う → 水入り瓶。バケツを牛に使う → 牛乳
   doFill(P, x, y, z) {
     const s = P.s, it = s.inv[s.sel], w = this.world(s.dim);
-    if (s.dead || !it || it.id !== 'glass_bottle' || !this.reach(P, x, y, z) || (w.getB(x, y, z) & 4095) !== WATER) return;
+    if (s.dead || !it || it.id !== 'glass_bottle' || !this.reach(P, x, y, z)) return;
+    const v = w.getB(x, y, z), id = v & 4095, st = v >> 12;
+    if (id === B.cauldron) { if (st <= 0) return; this.setBlock(w, x, y, z, B.cauldron | ((st - 1) << 12), false); }
+    else if (id !== WATER) return;
     if (s.gameMode !== 'creative') { it.count--; if (it.count <= 0) s.inv[s.sel] = null; }
     const left = invAdd(s.inv, 'water_bottle', 1); if (left) this.dropItem(s.dim, s.x, s.y + 1, s.z, { id: 'water_bottle', count: 1 }, 0, 0.1, 0, 10);
     this.sendInv(P); this.out(P.id, { t: 'sound', s: 'fill' });
@@ -8267,11 +8328,13 @@ Object.assign(Server.prototype, {
   doShoot(P, t) {
     const s = P.s, bow = s.inv[s.sel]; if (s.dead || !bow || bow.id !== 'bow') return;
     const creative = s.gameMode === 'creative', inf = enchLvl(bow, 'infinity') > 0;
-    const ai = s.inv.findIndex(x => x && x.id === 'arrow');
+    let ai = s.inv.findIndex(x => x && x.id === 'arrow');
+    if (ai < 0) ai = s.inv.findIndex(x => x && POTIONS[x.id] && POTIONS[x.id].arrow);
     if (ai < 0 && !creative) return;
+    const arrowId = ai >= 0 ? s.inv[ai].id : 'arrow';
     const f = Math.min(1, ((t / 20) ** 2 + (t / 20) * 2) / 3); if (f < 0.1) return;
     const cp = Math.cos(s.pitch), v = f * 3;
-    const a = { eid: this.eid++, kind: 'arrow', dim: s.dim, x: s.x, y: s.y + 1.5, z: s.z, vx: -Math.sin(s.yaw) * cp * v, vy: Math.sin(s.pitch) * v, vz: -Math.cos(s.yaw) * cp * v, age: 0, stuck: false, owner: -P.id - 1, byPlayer: P.id, crit: f >= 1, item: { id: 'arrow', count: 1 }, pickup: !creative && !inf, power: enchLvl(bow, 'power'), punch: enchLvl(bow, 'punch'), flame: enchLvl(bow, 'flame') };
+    const a = { eid: this.eid++, kind: 'arrow', dim: s.dim, x: s.x, y: s.y + 1.5, z: s.z, vx: -Math.sin(s.yaw) * cp * v, vy: Math.sin(s.pitch) * v, vz: -Math.cos(s.yaw) * cp * v, age: 0, stuck: false, owner: -P.id - 1, byPlayer: P.id, crit: f >= 1, item: { id: arrowId, count: 1 }, pickup: !creative && !inf, power: enchLvl(bow, 'power'), punch: enchLvl(bow, 'punch'), flame: enchLvl(bow, 'flame') };
     this.ents.set(a.eid, a);
     if (!creative && !inf) { s.inv[ai].count--; if (!s.inv[ai].count) s.inv[ai] = null; }
     if (!creative && this.wear(bow, 1)) s.inv[s.sel] = null;
@@ -8290,6 +8353,12 @@ Object.assign(Server.prototype, {
         if (a.crit) dmg += Math.random() * (dmg / 2 + 2) | 0;
         const P = this.players.get(a.byPlayer);
         if (this.mobDamage(e, dmg, P || null)) { const l = Math.hypot(a.vx, a.vz) || 1; e.vx += a.vx / l * (0.3 + a.punch * 0.6); e.vz += a.vz / l * (0.3 + a.punch * 0.6); if (a.flame && !MOBS[e.type].fireImmune) e.fire = 100; if (P) this.out(P.id, { t: 'sound', s: 'hit' }); }
+        // 効能付きの矢: スプラッシュポーションと同じ扱い（即時回復・即時ダメージだけ、アンデッドで逆転）
+        { const pot = POTIONS[a.item.id]; if (pot && pot.arrow && pot.eff && !e.dead) {
+          const undead = MOBS[e.type].family.includes('undead');
+          if ((pot.eff === 'instant_health' && undead) || (pot.eff === 'instant_damage' && !undead)) this.mobDamage(e, 6 << pot.amp, P || null);
+          else if ((pot.eff === 'instant_health' && !undead) || (pot.eff === 'instant_damage' && undead)) e.hp = Math.min(MOBS[e.type].hp, e.hp + (4 << pot.amp));
+        } }
         this.ents.delete(a.eid); return true;
       }
     }
@@ -8297,7 +8366,7 @@ Object.assign(Server.prototype, {
   },
   arrowPickup(a) {
     if (!a.stuck || !a.pickup) return;
-    for (const P of this.players.values()) { const s = P.s; if (!s.dead && s.dim === a.dim && Math.abs(s.x - a.x) < 1 && Math.abs(s.z - a.z) < 1 && a.y > s.y - 0.5 && a.y < s.y + 2) { if (!invAdd(s.inv, 'arrow', 1)) { this.ents.delete(a.eid); this.sendInv(P); this.out(P.id, { t: 'sound', s: 'pop' }); return; } } }
+    for (const P of this.players.values()) { const s = P.s; if (!s.dead && s.dim === a.dim && Math.abs(s.x - a.x) < 1 && Math.abs(s.z - a.z) < 1 && a.y > s.y - 0.5 && a.y < s.y + 2) { if (!invAdd(s.inv, a.item.id, 1)) { this.ents.delete(a.eid); this.sendInv(P); this.out(P.id, { t: 'sound', s: 'pop' }); return; } } }
   },
   /* --- 盾（統合版: スニーク中に構える。正面からの攻撃を防ぐ） --- */
   shieldBlocks(P, from) {
@@ -8600,6 +8669,7 @@ Object.assign(Server.prototype, {
   mapKey(dim, cx, cz) { return dim + '|' + cx + '|' + cz; },
   mapSet(dim, c) {
     const T = this.mapT || (this.mapT = new Map()), I = this.mapIdx || (this.mapIdx = { 0: new Set(), 1: new Set(), 2: new Set() });
+    if (!I[dim]) I[dim] = new Set(); // 影アドオン・リプレイ用ディメンションなど、0/1/2 以外の dim でも地図の索引を落とさない
     const k = this.mapKey(dim, c.cx, c.cz); T.set(k, mapTileOf(c, dim)); I[dim].add(c.cx + ',' + c.cz); (this.mapDirty || (this.mapDirty = new Set())).add(k);
     if (T.size > 4000) for (const kk of T.keys()) { if (!this.mapDirty.has(kk)) { T.delete(kk); if (T.size < 3000) break; } }
   },
@@ -10231,6 +10301,9 @@ const FACE_NAMES = ['Up', 'Down', 'North', 'South', 'West', 'East'];
       if (typeof m === 'string' && m) { o.m = m; if (P.morphRound) o.r = 1; }
       if (dp['battleaddon:cuffed']) o.c = 1; if (dp['battleaddon:shackled']) o.s = 1;
       if (P.s.effects && P.s.effects.invisibility) o.i = 1;
+      if (dp['alltestaddon:captured']) { o.cap = 1; const captorUid = dp['alltestaddon:capture_captor']; if (captorUid) { const captor = [...this.players.values()].find(Q => Q.s.uid === captorUid); if (captor) o.capBy = captor.display; } }
+      // 自分が誰かを引きずっている側のときも、ロープを描けるように相手の名前を伝える
+      for (const Q of this.players.values()) if (Q.s.dp && Q.s.dp['alltestaddon:capture_captor'] === P.s.uid) { o.capDrag = Q.display; break; }
       return Object.keys(o).length ? o : undefined;
     },
     sapiTick() { _sapiTick.call(this); for (const P of this.players.values()) { const lk = this.playerLook(P), k = JSON.stringify(lk || null); if (k !== P.lookKey) { P.lookKey = k; this.out(P.id, { t: 'look', lk: lk || null }); } } },
@@ -10248,6 +10321,65 @@ const FACE_NAMES = ['Up', 'Down', 'North', 'South', 'West', 'East'];
   Object.assign(SP, {
     doAttack(P, eid, crit) { if (cuffed(P)) return; _doAttack.call(this, P, eid, crit); },
     doAttackPlayer(P, pid, crit) { if (cuffed(P)) return; _doAttackPlayer.call(this, P, pid, crit); },
+  });
+})();
+// X線スキャナー（alltestaddon:xray_scanner）: 半径 5 ブロック以内の、除外していないブロックの位置を送る（画面では壁越しの緑の枠で描く）
+(() => {
+  const SP = Server.prototype, _tickX = SP.tick, XRAY_R = 5, XRAY_R2 = XRAY_R * XRAY_R + 0.0001;
+  Object.assign(SP, {
+    tick() {
+      _tickX.call(this);
+      if (this.tickN % 5 !== 0) return;
+      for (const P of this.players.values()) {
+        const s = P.s, dp = s.dp || {};
+        if (!dp['alltestaddon:xray_on']) { if (P.xrayOn) { this.out(P.id, { t: 'xray', list: [] }); P.xrayOn = false; } continue; }
+        P.xrayOn = true;
+        let excl; try { excl = new Set(JSON.parse(dp['alltestaddon:xray_exclude'] || '[]')); } catch (e) { excl = new Set(); }
+        const w = this.world(s.dim), cx = Math.floor(s.x), cy = Math.floor(s.y), cz = Math.floor(s.z), list = [];
+        for (let dx = -XRAY_R; dx <= XRAY_R; dx++) for (let dy = -XRAY_R; dy <= XRAY_R; dy++) for (let dz = -XRAY_R; dz <= XRAY_R; dz++) {
+          if (dx * dx + dy * dy + dz * dz > XRAY_R2) continue;
+          const id = w.getB(cx + dx, cy + dy, cz + dz) & 4095; if (!id) continue;
+          if (excl.has(BLOCKS[id].ident || 'minecraft:' + BLOCKS[id].name)) continue;
+          list.push(cx + dx, cy + dy, cz + dz);
+        }
+        this.out(P.id, { t: 'xray', list });
+      }
+    },
+  });
+})();
+// 確保アイテム（alltestaddon:capture_rope）: 固定・引きずり（間隔2ブロック）・車への同乗を毎 tick 処理する（見た目の状態は playerLook の cap/capBy/capDrag）
+(() => {
+  const SP = Server.prototype, _tickCap = SP.tick;
+  Object.assign(SP, {
+    tick() {
+      _tickCap.call(this);
+      for (const P of this.players.values()) {
+        const s = P.s, dp = s.dp || {};
+        if (!dp['alltestaddon:captured']) { if (P.inCarCapEid) { const car = this.ents.get(P.inCarCapEid); if (car && car.captive === P.id) car.captive = null; P.inCarCapEid = null; } continue; }
+        const captorUid = dp['alltestaddon:capture_captor'];
+        let nx = s.x, ny = s.y, nz = s.z;
+        if (captorUid) {
+          const captor = [...this.players.values()].find(Q => Q.s.uid === captorUid);
+          if (captor && captor.s.dim === s.dim) {
+            let carEnt = P.inCarCapEid ? this.ents.get(P.inCarCapEid) : null;
+            if (carEnt && carEnt.captive !== P.id) carEnt = null;
+            if (!carEnt) { P.inCarCapEid = null;
+              for (const e of this.ents.values()) if (e.type === 'alltestaddon:car' && !e.captive && e.dim === captor.s.dim && (e.x - captor.s.x) ** 2 + (e.z - captor.s.z) ** 2 < 6.25) { e.captive = P.id; P.inCarCapEid = e.eid; carEnt = e; break; }
+            }
+            if (carEnt) { const cs = Math.sin(carEnt.yaw || 0), cc = Math.cos(carEnt.yaw || 0); nx = carEnt.x - cc * 0.7; ny = carEnt.y + 0.35; nz = carEnt.z + cs * 0.7; }
+            else { const dx = s.x - captor.s.x, dz = s.z - captor.s.z, d = Math.hypot(dx, dz) || 1, k = 2 / d; nx = captor.s.x + dx * k; ny = captor.s.y; nz = captor.s.z + dz * k; }
+          }
+        } else {
+          if (P.inCarCapEid) { const car = this.ents.get(P.inCarCapEid); if (car && car.captive === P.id) car.captive = null; P.inCarCapEid = null; }
+          let anchor = null; try { anchor = JSON.parse(dp['alltestaddon:capture_anchor'] || 'null'); } catch (e) { anchor = null; }
+          if (anchor && SAPI_DIM.indexOf(anchor.d) === s.dim) { nx = anchor.x + 0.5; ny = anchor.y + 1; nz = anchor.z + 0.5; }
+          else if (!anchor) { let pos = null; try { pos = JSON.parse(dp['alltestaddon:capture_pos'] || 'null'); } catch (e) { pos = null; } if (pos && SAPI_DIM.indexOf(pos.d) === s.dim) { nx = pos.x; ny = pos.y; nz = pos.z; } }
+        }
+        const moved = Math.abs(nx - s.x) + Math.abs(ny - s.y) + Math.abs(nz - s.z) > 0.01;
+        s.x = nx; s.y = ny; s.z = nz; s.fall = 0;
+        if (moved || this.tickN % 10 === 0) this.out(P.id, { t: 'tp', x: nx, y: ny, z: nz });
+      }
+    },
   });
 })();
 
@@ -10419,7 +10551,7 @@ Object.assign(Server.prototype, {
     if (!it) { this.broadcast({ t: 'sound', s: 'click_off', x, y, z }); return; }
     const put = s => s; // 戻す用
     if (it.id === 'arrow' || (POTIONS[it.id] && /^(arrow|lingering_)/.test(it.id))) {
-      const v = 1.1, a = { eid: this.eid++, kind: 'arrow', dim: w.dim, x: x + 0.5 + DX[d] * 0.6, y: y + 0.5 + DY[d] * 0.6, z: z + 0.5 + DZ[d] * 0.6, vx: DX[d] * v, vy: DY[d] * v, vz: DZ[d] * v, age: 0, stuck: false, owner: 0, item: { id: 'arrow', count: 1 }, pickup: true };
+      const v = 1.1, a = { eid: this.eid++, kind: 'arrow', dim: w.dim, x: x + 0.5 + DX[d] * 0.6, y: y + 0.5 + DY[d] * 0.6, z: z + 0.5 + DZ[d] * 0.6, vx: DX[d] * v, vy: DY[d] * v, vz: DZ[d] * v, age: 0, stuck: false, owner: 0, item: { id: it.id, count: 1 }, pickup: true };
       this.ents.set(a.eid, a);
     } else if (it.id === 'water_bucket' || it.id === 'lava_bucket') {
       const cur = w.getB(fx, fy, fz) & 4095; if (!cur || REPLACE[cur]) { this.setFluid(w, fx, fy, fz, (it.id === 'water_bucket' ? WATER : LAVA) | (8 << 12)); this.returnOrEject(w, x, y, z, d, { id: 'bucket', count: 1 }); } else this.returnOrEject(w, x, y, z, d, it);
@@ -10563,6 +10695,484 @@ function hopperPushTo(srv, w, fx, fy, fz, be, tx, ty, tz, tbe, intoDir) {
 }
 // 槍・メイス・トライデントも近接武器として扱う（統合版と同じ素手以外のダメージ）
 for (const n of Object.keys(ITEMS)) { const it = ITEMS[n]; if (it.group === 'spear' || n === 'trident' || n === 'mace') it.weapon = true; }
+
+/* ===== リプレイアドオン（replay_addon）: 置いた・壊したブロックだけを記録し、倍速（0.25〜50倍）で再生する =====
+ * アイテム側（アドオンのスクリプト）は world の動的プロパティ（小さな値だけ）で
+ * on/off と速さ・見ている人の名前・保存名を伝え、実際の記録バッファと再生はここ（BLOCKCRAFT 本体）が持つ。
+ * 記録は「プレイヤーが実際に置いた・壊した」ときだけ（水の流れ・成長などの自動変化は含まない）。
+ * 再生は本物のワールドを変えない。専用のリプレイ用ディメンション（REPLAY_DIM）に、記録開始前の
+ * 状態まで巻き戻した世界を一時的に作り、見ている本人だけをスペクテイター状態でそこへ移して進めていく。
+ * 他のプレイヤーは本物のワールドにそのまま残り、何も影響を受けない。
+ * 2026-11-13: 記録を名前を付けて複数（上限 REPLAY_MAX 個、超えたら古いものから消す）保存できるようにした。
+ * 保存はサーバーのメモリ上だけ（再起動すると消える。ここまでは前と同じ）。 */
+(() => {
+  const REPLAY_DIM = 3; // dim の定義そのものは shared 側の DIMS 配列にある（クライアントも読むため）
+  const REPLAY_MAX = 30; // 保存できる記録の数の上限（超えたら一番古いものを消す）
+  const SP = Server.prototype, _doPlaceR = SP.doPlace, _doBreakR = SP.doBreak, _doAttackR = SP.doAttack, _tickR = SP.tick, _joinR = SP.join;
+  Object.assign(SP, {
+    // 再生を見ている途中で切断すると、保存された位置がリプレイ用ディメンションのまま（見学の戻り先は接続中しか残らない）になるので、
+    // 入り直したときはリプレイ用ディメンションに入れず、出現地点に戻す
+    join(pid, name, rd, display) {
+      const s = this.meta.players[name];
+      if (s && s.dim === REPLAY_DIM) { const sp = this.meta.spawn; Object.assign(s, { dim: 0, x: sp[0], y: sp[1], z: sp[2], gameMode: this.meta.gameMode }); }
+      return _joinR.call(this, pid, name, rd, display);
+    },
+    doPlace(P, x, y, z, v) {
+      if (P.s.gameMode === 'spectator') { this.resend(P, x, y, z); return; }
+      const dyn = this.meta.dyn || {}, rec = !!dyn['replay_addon:recording'], before = rec ? this.world(P.s.dim).getB(x, y, z) : 0;
+      _doPlaceR.call(this, P, x, y, z, v);
+      if (rec) { const after = this.world(P.s.dim).getB(x, y, z); if (after !== before) this.replayAppend(P.s.dim, x, y, z, before, after); }
+    },
+    doBreak(P, x, y, z) {
+      if (P.s.gameMode === 'spectator') { this.resend(P, x, y, z); return; }
+      const dyn = this.meta.dyn || {}, rec = !!dyn['replay_addon:recording'], before = rec ? this.world(P.s.dim).getB(x, y, z) : 0;
+      _doBreakR.call(this, P, x, y, z);
+      if (rec) { const after = this.world(P.s.dim).getB(x, y, z); if (after !== before) this.replayAppend(P.s.dim, x, y, z, before, after); }
+    },
+    doAttack(P, eid, crit) {
+      if (P.s.gameMode === 'spectator') return;
+      return _doAttackR.call(this, P, eid, crit);
+    },
+    replayAppend(dim, x, y, z, before, after) {
+      const dyn = this.meta.dyn || (this.meta.dyn = {});
+      if (!this.replayRecOn) { this.replayLog = []; this.replayStartTick = this.tickN; this.replayRecOn = true; dyn['replay_addon:count'] = 0; }
+      if (!this.replayLog) this.replayLog = [];
+      if (this.replayLog.length >= 50000) return; // 記録しすぎを防ぐ上限
+      this.replayLog.push([this.tickN - this.replayStartTick, dim, x, y, z, before, after]);
+      dyn['replay_addon:count'] = this.replayLog.length;
+    },
+    // 今たまっている記録（this.replayLog）に名前を付けて保存する。同じ名前があれば上書き
+    replaySave(name) {
+      if (!this.replayLog || !this.replayLog.length) return;
+      if (!this.replays) this.replays = new Map();
+      this.replays.delete(name); // Map の並び順を「新しい順」に保つため、同名なら一度消してから入れ直す
+      this.replays.set(name, { log: this.replayLog, dim: this.replayLog[0][1], savedAt: Date.now() });
+      while (this.replays.size > REPLAY_MAX) this.replays.delete(this.replays.keys().next().value); // 一番古いものを消す
+      this.replayLog = null;
+      (this.meta.dyn || (this.meta.dyn = {}))['replay_addon:count'] = 0;
+      this.replayUpdateList();
+    },
+    // 保存済みの一覧（名前・件数）をスクリプト側へ動的プロパティ（JSON文字列）で伝える
+    replayUpdateList() {
+      const dyn = this.meta.dyn || (this.meta.dyn = {});
+      const list = this.replays ? [...this.replays].map(([name, r]) => ({ name, count: r.log.length })) : [];
+      dyn['replay_addon:list'] = JSON.stringify(list);
+    },
+    // 再生開始: 記録に出てくるチャンクと見学者の周りのチャンクをリプレイ用ディメンションへコピーし、
+    // 記録されている「変化前の値」を逆順に当てて、記録開始前の状態まで巻き戻す
+    replaySetup(V, log, srcDim) {
+      const rw = this.world(REPLAY_DIM);
+      for (const [k, c] of [...rw.chunks]) rw.dropChunk(k, c); // 前回のリプレイ用の世界を消す
+      const sw = this.world(srcDim);
+      const keys = new Set();
+      for (const ev of log) if (ev[1] === srcDim) keys.add(ck(ev[2] >> 4, ev[4] >> 4));
+      const vcx = Math.floor(V.s.x / 16), vcz = Math.floor(V.s.z / 16);
+      for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) keys.add(ck(vcx + dx, vcz + dz));
+      for (const k of keys) {
+        const cx = ckX(k), cz = ckZ(k), c = sw.getChunk(cx, cz);
+        if (c) rw.addChunk({ cx, cz, subs: c.subs.map(a => a ? a.slice() : null), lights: c.light.map(a => a ? a.slice() : null), biomes: c.biomes.slice() });
+      }
+      for (let i = log.length - 1; i >= 0; i--) {
+        const ev = log[i]; if (ev[1] !== srcDim) continue;
+        rw.setB(ev[2], ev[3], ev[4], ev[5]); // ev[5] = 変化前の値
+      }
+      V.replayBackup = { dim: V.s.dim, x: V.s.x, y: V.s.y, z: V.s.z, yaw: V.s.yaw, pitch: V.s.pitch, gameMode: V.s.gameMode };
+      this.closeWin(V, false);
+      V.s.dim = REPLAY_DIM; V.s.fall = 0; V.s.gameMode = 'spectator';
+      V.sent.clear(); V.known.clear();
+      this.out(V.id, { t: 'dim', dim: REPLAY_DIM, x: V.s.x, y: V.s.y, z: V.s.z });
+      this.out(V.id, { t: 'gm', mode: 'spectator' });
+      this.sendStats(V, true); this.sendInv(V);
+      this.msg(V, '§bリプレイの世界に移動しました。壁や床もすり抜けて自由に飛べます。もう一度リプレイ再生機を使うといつでも元の場所に戻れます。', 'info');
+    },
+    // 再生終了（最後まで行った・途中で止めた）: 見学者を元いた場所・元のゲームモードに戻す
+    replayExit(viewerId, finished) {
+      const V = this.players.get(viewerId); if (!V || !V.replayBackup) return;
+      const b = V.replayBackup; V.replayBackup = null;
+      this.closeWin(V, false);
+      Object.assign(V.s, { dim: b.dim, x: b.x, y: b.y, z: b.z, yaw: b.yaw, pitch: b.pitch, fall: 0, gameMode: b.gameMode });
+      V.sent.clear(); V.known.clear();
+      this.out(V.id, { t: 'dim', dim: b.dim, x: b.x, y: b.y, z: b.z });
+      this.out(V.id, { t: 'gm', mode: b.gameMode });
+      this.sendStats(V, true); this.sendInv(V);
+      this.msg(V, finished ? '§aリプレイの再生が終わりました。元の場所に戻りました。' : '§aリプレイの再生を止めて、元の場所に戻りました。', 'info');
+    },
+    tick() {
+      _tickR.call(this);
+      const dyn = this.meta.dyn; if (!dyn) return;
+      // 記録がオフなら、次にオンになったとき replayAppend が必ず新しく記録を始め直せるようにしておく
+      if (!dyn['replay_addon:recording']) this.replayRecOn = false;
+      // 記録を止めたときにスクリプトから届く「この名前で保存して」の要求を処理する
+      if (dyn['replay_addon:save_request']) { this.replaySave(String(dyn['replay_addon:save_request'])); dyn['replay_addon:save_request'] = ''; }
+      if (!dyn['replay_addon:playing']) {
+        if (this.replayPlay) { this.replayExit(this.replayPlay.viewerId, false); this.replayPlay = null; }
+        return;
+      }
+      if (!this.replayPlay) {
+        const playName = dyn['replay_addon:play_name'], rec = this.replays && this.replays.get(playName);
+        if (!rec) { dyn['replay_addon:playing'] = false; return; }
+        const viewerName = dyn['replay_addon:viewer_name'];
+        const V = [...this.players.values()].find(q => q.display === viewerName || q.name === viewerName);
+        if (!V) { dyn['replay_addon:playing'] = false; return; }
+        this.replaySetup(V, rec.log, rec.dim);
+        this.replayPlay = { t0: this.tickN, idx: 0, speed: Math.max(0.25, Math.min(50, +dyn['replay_addon:play_speed'] || 1)), viewerId: V.id, log: rec.log, dim: rec.dim };
+        return;
+      }
+      if (!this.players.has(this.replayPlay.viewerId)) { dyn['replay_addon:playing'] = false; this.replayPlay = null; return; } // 見ていた人が抜けた
+      const { log, dim: srcDim } = this.replayPlay;
+      const virt = (this.tickN - this.replayPlay.t0) * this.replayPlay.speed;
+      let applied = 0;
+      const rw = this.world(REPLAY_DIM);
+      while (this.replayPlay.idx < log.length && log[this.replayPlay.idx][0] <= virt && applied < 2000) {
+        const ev = log[this.replayPlay.idx];
+        if (ev[1] === srcDim && rw.getChunk(ev[2] >> 4, ev[4] >> 4)) this.setBlock(rw, ev[2], ev[3], ev[4], ev[6], false); // ev[6] = 変化後の値
+        this.replayPlay.idx++; applied++;
+      }
+      if (this.replayPlay.idx >= log.length) {
+        dyn['replay_addon:playing'] = false;
+        this.replayExit(this.replayPlay.viewerId, true);
+        this.replayPlay = null;
+      }
+    },
+  });
+})();
+
+/* ---------- 残りの仕組み（コンポスター・大釜・リスポーンアンカー・ロードストーン・ビーコン・看板の文字） ---------- */
+// コンポスター: アイテムごとの堆肥になる確率（だいたいの目安。本家と完全には一致しない）
+const COMPOST_CHANCE = {};
+for (const n of ['oak_sapling', 'spruce_sapling', 'birch_sapling', 'jungle_sapling', 'acacia_sapling', 'dark_oak_sapling', 'cherry_sapling', 'mangrove_propagule', 'azalea', 'wheat_seeds', 'beetroot_seeds', 'melon_seeds', 'pumpkin_seeds', 'short_dry_grass', 'tall_dry_grass', 'wither_rose', 'seagrass', 'kelp', 'dried_kelp'])
+  COMPOST_CHANCE[n] = 0.3;
+for (const n of ['oak_leaves', 'spruce_leaves', 'birch_leaves', 'jungle_leaves', 'acacia_leaves', 'dark_oak_leaves', 'mangrove_leaves', 'cherry_leaves', 'azalea_leaves', 'azalea_leaves_flowered', 'sugar_cane', 'vine', 'moss_carpet', 'twisting_vines', 'weeping_vines', 'sweet_berries', 'nether_sprouts', 'tall_grass', 'large_fern', 'fern', 'glow_lichen', 'melon_seeds'])
+  COMPOST_CHANCE[n] = 0.5;
+for (const n of ['melon_slice', 'wheat', 'apple', 'beetroot', 'carrot', 'potato', 'sea_pickle', 'cocoa_beans', 'nether_wart'])
+  COMPOST_CHANCE[n] = 0.65;
+for (const n of ['baked_potato', 'bread', 'cookie', 'pumpkin', 'melon_block', 'dried_kelp_block', 'cactus', 'carved_pumpkin'])
+  COMPOST_CHANCE[n] = 0.85;
+for (const n of ['cake', 'hay_bale'])
+  COMPOST_CHANCE[n] = 1;
+const _makeBEZ = Server.prototype.makeBE;
+Server.prototype.makeBE = function (w, x, y, z, kind) {
+  if (kind === 'sign' || kind === 'beacon') {
+    const c = w.getChunk(x >> 4, z >> 4); if (!c) return null;
+    const be = kind === 'sign' ? { kind, text: '' } : { kind, tier: 0, t: 0 };
+    c.be.set(this.beKey(x, y, z), be); c.dirty = true; return be;
+  }
+  return _makeBEZ.call(this, w, x, y, z, kind);
+};
+const _fixStackZ = Server.prototype.fixStack;
+Server.prototype.fixStack = function (s) {
+  const o = _fixStackZ.call(this, s);
+  if (o && s && Array.isArray(s.ls) && s.ls.length === 4) o.ls = s.ls.slice();
+  return o;
+};
+const _doUseZ = Server.prototype.doUse;
+Server.prototype.doUse = function (P, x, y, z) {
+  const s = P.s, w = this.world(s.dim), v = w.getB(x, y, z), id = v & 4095, use = BLOCKS[id] && BLOCKS[id].use;
+  if (use === 'ender_chest') {
+    if (s.dead || !this.reach(P, x, y, z)) return;
+    this.closeWin(P, false);
+    P.win = { kind: 'chest', cont: s.ender };
+    this.out(P.id, { t: 'open', kind: 'chest', inv: s.inv, cont: P.win.cont, cursor: P.cursor, data: this.winData(P) });
+    return;
+  }
+  if (use === 'sign') return; // 文字は 'signset' メッセージ（画面のダイアログ）でだけ変える
+  return _doUseZ.call(this, P, x, y, z);
+};
+Object.assign(XUSE, {
+  composter(P, w, x, y, z, id, st) {
+    const lv = st & 15;
+    if (lv >= 8) { this.setBlock(w, x, y, z, id, false); this.dropItem(w.dim, x + 0.5, y + 1.2, z + 0.5, { id: 'bone_meal', count: 1 }, 0, 0.2, 0, 10); this.broadcast({ t: 'sound', s: 'compost', x, y, z }); return; }
+    const s = P.s, it = s.inv[s.sel], chance = it && COMPOST_CHANCE[it.id];
+    if (!chance) return;
+    if (s.gameMode !== 'creative') { it.count--; if (it.count <= 0) s.inv[s.sel] = null; this.sendInv(P); }
+    if (Math.random() < chance) this.setBlock(w, x, y, z, id | (Math.min(8, lv + 1) << 12), false);
+    this.broadcast({ t: 'sound', s: 'compost', x, y, z });
+  },
+  // リスポーンアンカー: 光る石で充填（最大4）。統合版と同じく、ネザー以外で使うと爆発する
+  anchor(P, w, x, y, z, id, st) {
+    const s = P.s, it = s.inv[s.sel], charge = st & 7;
+    if (it && it.id === 'glowstone' && charge < 4) {
+      this.setBlock(w, x, y, z, id | ((charge + 1) << 12), false);
+      if (s.gameMode !== 'creative') { it.count--; if (it.count <= 0) s.inv[s.sel] = null; this.sendInv(P); }
+      this.broadcast({ t: 'sound', s: 'anchor_charge', x, y, z });
+      return;
+    }
+    if (s.dim !== 1) { this.setBlock(w, x, y, z, 0, false); this.explodeFire(w, x + 0.5, y + 0.5, z + 0.5, null); this.explode(w, x + 0.5, y + 0.5, z + 0.5, 5, null); return; }
+    if (charge <= 0) { this.msg(P, 'リスポーンアンカーに光る石を使って充填してください'); return; }
+    this.setBlock(w, x, y, z, id | ((charge - 1) << 12), false);
+    s.spawn = [x + 0.5, y + 1, z + 0.5]; s.spawnDim = 1;
+    this.msg(P, 'リスポーン地点を設定しました');
+  },
+  // ロードストーン: コンパスを持って右クリックすると、その場所を指すようになる
+  lodestone(P, w, x, y, z) {
+    const s = P.s, it = s.inv[s.sel];
+    if (!it || it.id !== 'compass') return;
+    it.ls = [w.dim, x, y, z];
+    this.sendInv(P);
+    this.broadcast({ t: 'sound', s: 'lodestone_compass', x, y, z });
+  },
+  // ビーコン: 下の鉱石ブロックのピラミッドの段数を見るだけ（効果は beaconTick で配る）
+  beacon(P, w, x, y, z) {
+    const be = this.getBE(w, x, y, z) || this.makeBE(w, x, y, z, 'beacon');
+    this.msg(P, be && be.tier ? `ビーコン（ピラミッド${be.tier}段）が効果を発生させています` : 'ビーコンの下に鉄・金・エメラルド・ダイヤモンド・ネザライトのブロックでピラミッドを作ってください');
+  },
+});
+Object.assign(Server.prototype, {
+  // ビーコンの下のピラミッドを数えて、範囲内のプレイヤーに効果を配る（4 秒ごと）
+  beaconTick(w, c, k, be) {
+    be.t = (be.t || 0) + 1; if (be.t < 80) return; be.t = 0;
+    const x = c.cx * 16 + (k & 15), y = (k >> 8) + MIN_Y, z = c.cz * 16 + ((k >> 4) & 15);
+    const okBlock = v => v === B.iron_block || v === B.gold_block || v === B.emerald_block || v === B.diamond_block || (B.netherite_block !== undefined && v === B.netherite_block);
+    let tier = 0;
+    for (let d = 1; d <= 4; d++) {
+      const yy = y - d; let good = true;
+      for (let dx = -d; dx <= d && good; dx++) for (let dz = -d; dz <= d; dz++) if (!okBlock(w.getB(x + dx, yy, z + dz) & 4095)) { good = false; break; }
+      if (!good) break;
+      tier = d;
+    }
+    be.tier = tier; if (!tier) return;
+    const range = tier * 10 + 10;
+    for (const P of this.players.values()) {
+      const s = P.s; if (s.dead || s.dim !== w.dim) continue;
+      if (Math.abs(s.x - x) > range || Math.abs(s.y - y) > range * 2 || Math.abs(s.z - z) > range) continue;
+      this.addEffect(P, 'speed', 0, 260); this.addEffect(P, 'haste', 0, 260);
+      if (tier >= 4) this.addEffect(P, 'regeneration', 0, 260);
+    }
+  },
+  // 看板の文字を変える（置いた人だけでなく誰でも書き換えられる。本家の簡略版）
+  doSignSet(P, x, y, z, text) {
+    const s = P.s, w = this.world(s.dim);
+    if (s.dead || !this.reach(P, x, y, z)) return;
+    const id = w.getB(x, y, z) & 4095; if (!BLOCKS[id] || BLOCKS[id].use !== 'sign') return;
+    const be = this.getBE(w, x, y, z) || this.makeBE(w, x, y, z, 'sign'); if (!be) return;
+    be.text = String(text || '').slice(0, 100);
+    w.getChunk(x >> 4, z >> 4).dirty = true;
+    this.broadcast({ t: 'signtext', dim: w.dim, x, y, z, text: be.text });
+  },
+  // スポーンエッグ: 置いた面の上に生き物を出す（まだいない生き物は出せない旨を伝える）
+  doSpawnEgg(P, x, y, z, eggId) {
+    const s = P.s, w = this.world(s.dim);
+    if (s.dead || !this.reach(P, x, y, z) || s.gameMode === 'adventure') return;
+    const it = s.inv[s.sel]; if (!it || it.id !== eggId || !ITEMS[eggId] || ITEMS[eggId].group !== 'mobEgg') return;
+    const type = eggId.replace(/_spawn_egg$/, '');
+    if (!MOBS[type]) { this.msg(P, 'この生き物はまだ出せません'); return; }
+    if (!SOLID[w.getB(x, y - 1, z) & 4095] || (w.getB(x, y, z) & 4095)) { this.resend(P, x, y, z); return; }
+    const e = this.spawnMob(type, s.dim, x + 0.5, y, z + 0.5);
+    if (!e) return;
+    if (s.gameMode !== 'creative') { it.count--; if (it.count <= 0) s.inv[s.sel] = null; this.sendInv(P); }
+    this.broadcast({ t: 'sound', s: 'pop', x, y, z });
+  },
+});
+{
+  const _tickFurnacesZ = Server.prototype.tickFurnaces;
+  Server.prototype.tickFurnaces = function () {
+    for (const [, w] of this.dims) for (const c of w.chunks.values()) { if (!c.be.size) continue; for (const [k, be] of c.be) if (be.kind === 'beacon') this.beaconTick(w, c, k, be); }
+    return _tickFurnacesZ.call(this);
+  };
+  const _onMessageZ = Server.prototype.onMessage;
+  Server.prototype.onMessage = function (pid, m) {
+    if (m.t === 'signset') { const P = this.players.get(pid); if (P) this.doSignSet(P, m.x | 0, m.y | 0, m.z | 0, m.text); return; }
+    if (m.t === 'spawnegg') { const P = this.players.get(pid); if (P) this.doSpawnEgg(P, m.x | 0, m.y | 0, m.z | 0, String(m.egg || '')); return; }
+    return _onMessageZ.call(this, pid, m);
+  };
+  // リスポーンアンカーからの復帰にも対応（ベッド=ディメンション0, アンカー=ディメンション1）。
+  // アドオンへの 'playerSpawn' 通知は、組み替え前の respawn が行っていたのと同じ条件で自分で出す。
+  Server.prototype.respawn = function (P) {
+    const s = P.s; if (!s.dead) return;
+    let sp = this.meta.spawn, dim = 0;
+    if (s.spawn) {
+      const sd = s.spawnDim || 0, w0 = this.world(sd), bx = Math.floor(s.spawn[0]), bz = Math.floor(s.spawn[2]);
+      const by = Math.floor(s.spawn[1]) - (sd === 1 ? 1 : 0); // アンカーは足元の1つ下、ベッドは同じ高さ
+      const expect = sd === 1 ? B.respawn_anchor : B.bed;
+      if (w0.getChunk(bx >> 4, bz >> 4) && (w0.getB(bx, by, bz) & 4095) !== expect) { s.spawn = null; this.msg(P, sd === 1 ? 'リスポーンアンカーが見つからないか、こわされています' : 'ベッドが見つからないか、ふさがれています'); }
+      else { sp = [s.spawn[0], s.spawn[1] + 0.1, s.spawn[2]]; dim = sd; }
+    }
+    s.effects = {}; P.sleep = 0;
+    const was = s.dim;
+    Object.assign(s, { fire: 0, wither: 0, dead: false, health: 20, food: 20, sat: 5, exh: 0, air: 300, fall: 0, x: sp[0], y: sp[1], z: sp[2], dim, flying: false });
+    P.sent.clear(); P.known.clear(); P.travel = null;
+    if (was !== dim) this.out(P.id, { t: 'dim', dim, x: s.x, y: s.y, z: s.z, respawn: true });
+    else this.out(P.id, { t: 'tp', x: s.x, y: s.y, z: s.z, reset: true });
+    this.sendStats(P, true); this.sendInv(P);
+    if (this.emitAddon) this.emit('playerSpawn', { player: this.entObj(P), initialSpawn: false });
+  };
+}
+// 看板の文字を、チャンクを送った直後にまとめて送る（置いてある分を読み込み時に見られるように）
+{
+  const _sendChunkZ = Server.prototype.sendChunk;
+  Server.prototype.sendChunk = function (P, c) {
+    _sendChunkZ.call(this, P, c);
+    const signs = []; for (const [k, be] of c.be) if (be.kind === 'sign' && be.text) signs.push({ x: c.cx * 16 + (k & 15), y: (k >> 8) + MIN_Y, z: c.cz * 16 + ((k >> 4) & 15), text: be.text });
+    if (signs.length) this.out(P.id, { t: 'signs', dim: P.s.dim, signs });
+  };
+}
+
+/* ---------- レール・トロッコ・ボート ---------- */
+const RAIL_DIRS = { N: [0, -1], S: [0, 1], E: [1, 0], W: [-1, 0] };
+function isRailId(id) { return !!(BLOCKS[id] && BLOCKS[id].group === 'rail'); }
+function railCurvesOk(id) { return id === B.rail; } // カーブは普通のレールだけ（本家と同じ）
+function railNeighbors(w, x, y, z) {
+  const found = {};
+  for (const name in RAIL_DIRS) {
+    const [dx, dz] = RAIL_DIRS[name];
+    for (const dy of [0, 1, -1]) { if (isRailId(w.getB(x + dx, y + dy, z + dz) & 4095)) { found[name] = dy; break; } }
+  }
+  return found;
+}
+function computeRailState(w, x, y, z, curvesOk, preferEW) {
+  const nb = railNeighbors(w, x, y, z), N = nb.N, S = nb.S, E = nb.E, W = nb.W;
+  const hasNS = N !== undefined || S !== undefined, hasEW = E !== undefined || W !== undefined;
+  if (hasNS && !hasEW) return N === 1 ? 4 : S === 1 ? 5 : 0;
+  if (hasEW && !hasNS) return E === 1 ? 2 : W === 1 ? 3 : 1;
+  if (curvesOk && hasNS && hasEW) { if (S !== undefined && E !== undefined) return 6; if (S !== undefined && W !== undefined) return 7; if (N !== undefined && E !== undefined) return 8; return 9; }
+  if (hasNS) return N === 1 ? 4 : S === 1 ? 5 : 0;
+  if (hasEW) return E === 1 ? 2 : W === 1 ? 3 : 1;
+  return preferEW ? 1 : 0;
+}
+Object.assign(Server.prototype, {
+  // レールを置いた・外した時、その場所と4方向の隣を正しい形に繋ぎ直す
+  updateRailsAround(w, x, y, z) {
+    for (const [dx, dz] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) for (const dy of [0, 1, -1]) {
+      const nx = x + dx, ny = y + dy, nz = z + dz, v = w.getB(nx, ny, nz), id = v & 4095;
+      if (!isRailId(id)) continue;
+      const ns = computeRailState(w, nx, ny, nz, railCurvesOk(id), (v >> 12) & 1);
+      if (ns !== (v >> 12 & 15)) this.setBlock(w, nx, ny, nz, id | (ns << 12), false);
+    }
+  },
+  // トロッコ・ボートを置く（レールの上・水の上に出す）
+  doVehiclePlace(P, x, y, z, itemId) {
+    const s = P.s, w = this.world(s.dim);
+    if (s.dead || !this.reach(P, x, y, z) || s.gameMode === 'adventure') return;
+    const it = s.inv[s.sel]; if (!it || it.id !== itemId) return;
+    const isCart = ITEMS[itemId] && ITEMS[itemId].group === 'minecart';
+    const id = w.getB(x, y, z) & 4095;
+    if (isCart) { if (!isRailId(id)) return; }
+    else { if (id !== WATER || (w.getB(x, y, z) >> 12) !== 0) return; }
+    const type = isCart ? 'minecart' : 'boat';
+    const e = this.spawnMob(type, s.dim, x + 0.5, isCart ? y : y + 0.1, z + 0.5, { persist: true, vehItem: itemId });
+    if (!e) return;
+    e.yaw = s.yaw;
+    if (s.gameMode !== 'creative') { it.count--; if (it.count <= 0) s.inv[s.sel] = null; this.sendInv(P); }
+  },
+  vehicleRide(P, e) {
+    if (!MOBS[e.type] || !MOBS[e.type].vehicle) return;
+    if (e.rider && e.rider !== P.id && this.players.has(e.rider)) { this.msg(P, 'ほかの人が乗っています', 'error'); return; }
+    if (Math.hypot(e.x - P.s.x, e.y - P.s.y, e.z - P.s.z) > 6) return;
+    this.vehicleLeave(P); e.rider = P.id; P.ride = e.eid;
+    this.out(P.id, { t: 'ride', eid: e.eid, kind: MOBS[e.type].vehicle, x: e.x, y: e.y, z: e.z, yaw: e.yaw || 0 });
+  },
+  vehicleMove(P, m) {
+    const e = this.ents.get(P.ride); if (!e || e.rider !== P.id) { P.ride = null; this.out(P.id, { t: 'ride', eid: null }); return; }
+    const x = +m.x, y = +m.y, z = +m.z; if (!isFinite(x + y + z) || Math.hypot(x - e.x, y - e.y, z - e.z) > 8) return;
+    e.x = x; e.y = y; e.z = z; e.yaw = +m.yaw || 0; e.vx = e.vy = e.vz = 0; e.og = true; P.s.fall = 0;
+  },
+  vehicleLeave(P) { const e = P.ride && this.ents.get(P.ride); if (e && e.rider === P.id) e.rider = null; P.ride = null; },
+  vehicleBreak(P, eid) {
+    const e = this.ents.get(eid); if (!e || !MOBS[e.type] || !MOBS[e.type].vehicle || e.rider) return false;
+    if (e.dim !== P.s.dim || Math.hypot(e.x - P.s.x, e.y - P.s.y, e.z - P.s.z) > 6) return false;
+    this.ents.delete(e.eid);
+    if (P.s.gameMode !== 'creative') this.dropItem(e.dim, e.x, e.y + 0.3, e.z, { id: e.vehItem || (e.type === 'minecart' ? 'minecart' : 'oak_boat'), count: 1 }, 0, 0.2, 0, 10);
+    return true;
+  },
+});
+{
+  const _doPlaceZ = Server.prototype.doPlace, _doBreakZ = Server.prototype.doBreak, _doItemUseZ = Server.prototype.doItemUse, _doAttackZ = Server.prototype.doAttack, _onMessageZ2 = Server.prototype.onMessage, _leaveZ2 = Server.prototype.leave;
+  Server.prototype.doPlace = function (P, x, y, z, v) {
+    _doPlaceZ.call(this, P, x, y, z, v);
+    const w = this.world(P.s.dim), id = w.getB(x, y, z) & 4095;
+    if (isRailId(id)) { const ns = computeRailState(w, x, y, z, railCurvesOk(id), Math.abs(Math.sin(P.s.yaw)) > Math.abs(Math.cos(P.s.yaw)) ? 1 : 0); this.setBlock(w, x, y, z, id | (ns << 12), false); this.updateRailsAround(w, x, y, z); }
+  };
+  Server.prototype.doBreak = function (P, x, y, z) {
+    const w = this.world(P.s.dim), wasRail = isRailId(w.getB(x, y, z) & 4095);
+    _doBreakZ.call(this, P, x, y, z);
+    if (wasRail) this.updateRailsAround(w, x, y, z);
+  };
+  Server.prototype.doItemUse = function (P, m) {
+    const s = P.s, it = s.inv[s.sel], id = it && it.id, tg = m.tgt;
+    if (!s.dead) {
+      if (tg && tg.k === 'e' && tg.eid !== undefined) { const e = this.ents.get(tg.eid); if (e && MOBS[e.type] && MOBS[e.type].vehicle) { this.vehicleRide(P, e); return; } }
+      if (tg && tg.k === 'b' && id && ITEMS[id] && (ITEMS[id].group === 'minecart' || ITEMS[id].group === 'boat')) { this.doVehiclePlace(P, tg.x | 0, tg.y | 0, tg.z | 0, id); return; }
+    }
+    return _doItemUseZ.call(this, P, m);
+  };
+  Server.prototype.doAttack = function (P, eid, crit) {
+    if (this.vehicleBreak(P, eid)) return;
+    return _doAttackZ.call(this, P, eid, crit);
+  };
+  Server.prototype.onMessage = function (pid, m) {
+    if (m.t === 'veh') { const P = this.players.get(pid); if (P) this.vehicleMove(P, m); return; }
+    if (m.t === 'unveh') { const P = this.players.get(pid); if (P) this.vehicleLeave(P); return; }
+    return _onMessageZ2.call(this, pid, m);
+  };
+  Server.prototype.leave = function (pid) { const P = this.players.get(pid); if (P) this.vehicleLeave(P); return _leaveZ2.call(this, pid); };
+}
+
+/* ===== 座れる椅子: use:'chair' のブロックを右クリックすると座る（kei さんの依頼、2026-11-13）=====
+ * ベッドの「一度だけ座標を送る」方式ではなく、確保アイテムと同じ「毎 tick 強制し直す」方式にする。
+ * クライアントからの move 報告がどうであっても、座っている間は座面の位置からズレない。 */
+(() => {
+  const SP = Server.prototype, _doPlaceChair = SP.doPlace, _doUseChair = SP.doUse, _tickChair = SP.tick, _setBlockChair = SP.setBlock, _onMessageChair = SP.onMessage, _playerLookChair = SP.playerLook;
+  Object.assign(SP, {
+    // 椅子を置いたら、背もたれをもう1ブロック自動で上に置く（ベッド・ドアと同じ2マス連動）
+    doPlace(P, x, y, z, v) {
+      const id = v & 4095, isChair = !!(BLOCKS[id] && BLOCKS[id].group === 'chair'), w = this.world(P.s.dim);
+      if (isChair) { const above = w.getB(x, y + 1, z) & 4095; if (above && !REPLACE[above]) { this.resend(P, x, y, z); return; } }
+      const before = isChair ? w.getB(x, y, z) : 0;
+      _doPlaceChair.call(this, P, x, y, z, v);
+      if (isChair) { const after = w.getB(x, y, z); if (after !== before) this.setBlock(w, x, y + 1, z, id | (((after >> 12) | 4) << 12), false); }
+    },
+    doUse(P, x, y, z) {
+      const s = P.s, w = this.world(s.dim), id = w.getB(x, y, z) & 4095, use = BLOCKS[id] && BLOCKS[id].use;
+      if (use === 'chair') { if (!s.dead && this.reach(P, x, y, z)) this.doSit(P, x, y, z); return; }
+      return _doUseChair.call(this, P, x, y, z);
+    },
+    doSit(P, x, y, z) {
+      if (P.sit) { this.standUp(P); return; }
+      if (P.sleep || P.ride) return;
+      const s = P.s, w = this.world(s.dim), v = w.getB(x, y, z), id = v & 4095;
+      if (!BLOCKS[id] || BLOCKS[id].group !== 'chair') return;
+      const st = v >> 12, sy = (st & 4) ? y - 1 : y, sv = (st & 4) ? w.getB(x, sy, z) : v;
+      for (const Q of this.players.values()) if (Q !== P && Q.sit && Q.sit.x === x && Q.sit.y === sy && Q.sit.z === z) { this.msg(P, 'もう座られています', 'error'); return; }
+      const [dx, dz] = LOOK[(sv >> 12) & 3], yaw = Math.atan2(-dx, -dz);
+      P.sit = { x, y: sy, z, yaw };
+      this.closeWin(P, false);
+      Object.assign(s, { x: x + 0.5, y: sy + 0.5, z: z + 0.5, yaw, fall: 0 });
+      this.out(P.id, { t: 'sit', on: true, x: s.x, y: s.y, z: s.z, yaw });
+    },
+    standUp(P) {
+      if (!P.sit) return;
+      P.sit = null;
+      this.out(P.id, { t: 'sit', on: false });
+    },
+    tick() {
+      _tickChair.call(this);
+      for (const P of this.players.values()) {
+        if (!P.sit) continue;
+        const w = this.world(P.s.dim), v = w.getB(P.sit.x, P.sit.y, P.sit.z);
+        if (!BLOCKS[v & 4095] || BLOCKS[v & 4095].group !== 'chair') { this.standUp(P); continue; }
+        Object.assign(P.s, { x: P.sit.x + 0.5, y: P.sit.y + 0.5, z: P.sit.z + 0.5, yaw: P.sit.yaw, fall: 0 });
+      }
+    },
+    setBlock(w, x, y, z, v, destroyed) {
+      const oldv = w.getB(x, y, z), old = oldv & 4095;
+      _setBlockChair.call(this, w, x, y, z, v, destroyed);
+      if (BLOCKS[old] && BLOCKS[old].group === 'chair' && (v & 4095) !== old) {
+        const oy = (oldv >> 12) & 4 ? y - 1 : y + 1;
+        if ((w.getB(x, oy, z) & 4095) === old) this.setBlock(w, x, oy, z, 0, destroyed);
+        for (const P of this.players.values()) if (P.sit && P.sit.x === x && P.sit.z === z && (P.sit.y === y || P.sit.y === oy)) this.standUp(P);
+      }
+    },
+    onMessage(pid, m) {
+      if (m.t === 'stand') { const P = this.players.get(pid); if (P) this.standUp(P); return; }
+      return _onMessageChair.call(this, pid, m);
+    },
+    playerLook(P) {
+      const o = _playerLookChair.call(this, P) || {};
+      if (P.sit) o.sit = 1;
+      return Object.keys(o).length ? o : undefined;
+    },
+  });
+})();
 
 </script>
 
@@ -12022,16 +12632,20 @@ function connectLocal(meta, onMsg) {
 const G = {
   state: 'title', world: null, meta: null, locked: false, hud: true, persp: 0, frame: 0, tick: 0,
   inv: new Array(36).fill(null), sel: 0, cursor: null, target: null, particles: [], shot: false,
-  lmb: false, rmb: false, breakPos: null, breakProg: 0, breakCd: 0, placeCd: 0, invDirty: true,
+  lmb: false, rmb: false, breakPos: null, breakProg: 0, breakCd: 0, rmbT0: 0, invDirty: true,
 };
 const P = {
   x: 0, y: 0, z: 0, px: 0, py: 0, pz: 0, vx: 0, vy: 0, vz: 0, yaw: 0, pitch: 0, h: 1.8, eye: 1.62, peye: 1.62,
-  onGround: false, flying: false, sneak: false, sprint: false, inWater: false, inLava: false, eyeWater: false, eyeLava: false, hcoll: false,
+  onGround: false, flying: false, sneak: false, sprint: false, inWater: false, inLava: false, eyeWater: false, eyeLava: false, hcoll: false, noclip: false,
   walk: 0, pwalk: 0, bob: 0, pbob: 0, limb: 0, jumpDelay: 0, swing: 0, pswing: 0, swingOn: false,
   health: 20, food: 20, sat: 5, fovK: 1, pfovK: 1, spaceTap: -100, wTap: -100, sprintTap: false,
 };
 const mode = () => G.meta ? G.meta.gameMode : 'creative';
 const isCreative = () => mode() === 'creative';
+// リプレイ再生中の見学（スペクテイター）: すり抜けて自由に飛べる。movePlayer() の冒頭で当たり判定そのものを飛ばす
+const isSpectating = () => mode() === 'spectator';
+// スナイパーライフルを持ってスニーク（Shift）している間だけスコープを覗く（BLOCKCRAFT 側の見た目だけの機能。ホイールで倍率を変える）
+const isScoped = () => { const it = G.inv && G.inv[G.sel]; return !!(it && it.id === 'alltestaddon:sniper_rifle' && P.shiftKey && G.state === 'game' && G.locked); };
 const keys = new Set();
 const key = c => keys.has(c);
 
@@ -12079,6 +12693,8 @@ function collides(x, y, z, h) {
   return false;
 }
 function movePlayer(dx, dy, dz) {
+  // スペクテイター（リプレイ見学）: 当たり判定を一切せず、そのまま動かす
+  if (P.noclip) { P.x += dx; P.y += dy; P.z += dz; P.onGround = false; P.hcoll = false; return; }
   // スニーク中は足場の縁から落ちない
   if (P.sneak && P.onGround && !P.flying) {
     const st = 0.05, shrink = v => Math.abs(v) < st ? 0 : v - Math.sign(v) * st;
@@ -12115,27 +12731,33 @@ function moveRelative(strafe, fwd, speed) {
   P.vx += -s * fwd + c * strafe; P.vz += -c * fwd - s * strafe;
 }
 function tickPlayer() {
-  P.px = P.x; P.py = P.y; P.pz = P.z; P.peye = P.eye; P.pwalk = P.walk; P.pbob = P.bob; P.pfovK = P.fovK;
-  // 巨大化（giantsafe37）: 大きさ・当たり判定・速さ・ジャンプ力を、目標値へゆっくり近づける（視点が急に動かない）
+  P.px = P.x; P.py = P.y; P.pz = P.z; P.peye = P.eye; P.pwalk = P.walk; P.pbob = P.bob; P.pfovK = P.fovK; P.pscale = P.scale === undefined ? 1 : P.scale;
+  // 巨大化（giantsafe37）: 大きさ・当たり判定・速さ・ジャンプ力を、目標値へゆっくり近づける（視点が急に動かない）。P.pscale/P.scale の間を render() が毎フレーム補間するので、1 tick（0.05 秒）の中でも滑らかに見える
   if (P.scaleT !== undefined) { const k = 0.08; P.scale += (P.scaleT - P.scale) * k; P.hw += (P.hwT - P.hw) * k; P.hBase += (P.hBaseT - P.hBase) * k; P.mvMul += (P.mvMulT - P.mvMul) * k; P.jumpP += (P.jumpPT - P.jumpP) * k; }
   let play = G.state === 'game' && G.locked;
   let fw = 0, st = 0, jump = false, shift = false;
   if (play) { fw = (act('forward') ? 1 : 0) - (act('back') ? 1 : 0); st = (act('right') ? 1 : 0) - (act('left') ? 1 : 0); jump = act('jump'); shift = act('sneak'); }
+  // 椅子に座っている間に移動キー・ジャンプを押すと立ち上がる（もう一度椅子を右クリックしても立てる）
+  if (G.sitting && (fw || st || jump)) { G.sitting = false; G.conn.send({ t: 'stand' }); }
   // ゲームパッドとタッチの入力も合わせる
-  if (G.sleeping) play = false;
+  if (G.sleeping || G.sitting) play = false;
+  if (G.sitting) P.yaw = G.sitYaw; // 座っている間は体（横の視点）を椅子の向きに合わせる。上下は自由に動かせる
   if (play) { fw = clamp(fw + G.pad.fw + TOUCH.fw, -1, 1); st = clamp(st + G.pad.st + TOUCH.st, -1, 1); jump = jump || G.pad.jump || TOUCH.jump; shift = shift || G.pad.sneak || TOUCH.sneak; }
   if (G.ilock) { if (G.ilock[2] || G.ilock[4]) { fw = 0; st = 0; } if (G.ilock[2] || G.ilock[6]) jump = false; if (G.ilock[2] || G.ilock[5]) shift = false; }
   P.mvIn = [-st, fw];
   P.shiftKey = shift; // 飛行中は P.sneak にならないので、スクリプト（ドローン・監視カメラの下降など）のために生の Shift の状態も残す
-  if (P.flying && !isCreative()) P.flying = false;
+  const spectating = isSpectating();
+  P.noclip = spectating;
+  if (spectating) P.flying = true; // リプレイ見学中はすり抜けで自由に飛べる状態を保つ
+  else if (P.flying && !isCreative()) P.flying = false;
   // スニーク（立ち上がれる空間がなければしゃがんだまま）
   if (shift && !P.flying) P.sneak = true;
   else if (P.sneak && !collides(P.x, P.y, P.z, 1.8)) P.sneak = false;
   P.h = (P.sneak ? 1.5 : 1.8) * (P.hBase ? P.hBase / 1.8 : 1);
   // ダッシュ
   const ctrl = play && act('sprint');
-  if ((ctrl || P.sprintTap) && fw > 0 && !P.sneak && (isCreative() || P.food > 6)) P.sprint = true;
-  if (fw <= 0 || P.sneak || (P.hcoll && !P.flying) || (!isCreative() && P.food <= 6)) { P.sprint = false; P.sprintTap = false; }
+  if ((ctrl || P.sprintTap) && fw > 0 && !P.sneak && (isCreative() || spectating || P.food > 6)) P.sprint = true;
+  if (fw <= 0 || P.sneak || (P.hcoll && !P.flying) || (!isCreative() && !spectating && P.food <= 6)) { P.sprint = false; P.sprintTap = false; }
   let mf = fw * 0.98, ms = st * 0.98; if (P.sneak) { mf *= 0.3; ms *= 0.3; }
   const hw = P.hw || 0.3;
   P.inWater = fluidAt(P.x - hw + 0.001, P.y + 0.001, P.z - hw + 0.001, P.x + hw - 0.001, P.y + P.h * 0.6, P.z + hw - 0.001, WATER);
@@ -12144,11 +12766,11 @@ function tickPlayer() {
   P.jumpPrev = jump;
   if (P.gliding) glideTick();
   else if (P.flying) {
-    moveRelative(ms, mf, 0.05 * (P.sprint ? 2 : 1));
+    moveRelative(ms, mf, 0.05 * (P.sprint ? 2 : 1) * (spectating ? 1.6 : 1));
     if (jump) P.vy += 0.15; if (shift) P.vy -= 0.15;
     movePlayer(P.vx, P.vy, P.vz);
     P.vx *= 0.91; P.vz *= 0.91; P.vy *= 0.6;
-    if (P.onGround) P.flying = false; // 地面に着くと飛行をやめる
+    if (P.onGround && !spectating) P.flying = false; // 地面に着くと飛行をやめる（見学中は着地しても飛び続ける）
   } else if (P.inWater || P.inLava) {
     const k = P.inWater ? 0.8 : 0.5;
     moveRelative(ms, mf, 0.02);
@@ -12188,7 +12810,7 @@ function tickPlayer() {
   if (P.onGround && !P.flying && !P.sneak && Math.floor(P.walk / 1.1) !== Math.floor(P.pwalk / 1.1)) SFX.block('step', soundOf(G.world.getB(Math.floor(P.x), Math.floor(P.y - 0.2), Math.floor(P.z)) & 4095));
   P.bob += ((P.onGround && !P.flying ? Math.min(0.1, hs) : 0) - P.bob) * 0.4;
   P.limb += (Math.min(1, hs * 4) - P.limb) * 0.4;
-  P.fovK += ((P.sprint ? (P.flying ? 1.15 : 1.1) : 1) - P.fovK) * 0.35;
+  { const scoped = isScoped(); P.fovK += ((scoped ? 1 / clamp(G.scopeZoom || 4, 1, 10) : P.sprint ? (P.flying ? 1.15 : 1.1) : 1) - P.fovK) * (scoped || P.scoped ? 0.5 : 0.35); P.scoped = scoped; }
   if (P.y < -160) { const s = G.meta.spawn; P.x = s[0]; P.y = s[1]; P.z = s[2]; P.vx = P.vy = P.vz = 0; }
 }
 
@@ -12256,12 +12878,13 @@ function breakBlock(t) {
 function useOrPlace(first) {
   const t = G.target, it = G.inv[G.sel], d = it && ITEMS[it.id];
   if (first && t && t.id === B.television && !P.sneak) { openTvDialog(t); swing(); return; }
+  if (first && t && BLOCKS[t.id].use === 'sign' && !P.sneak) { openSignDialog(t); swing(); return; }
   // 道具ごとの使い方（ガラス瓶・スプラッシュポーション・釣り竿・弓・盾・エンダーパール・エンダーアイ・ロケット花火）
   if (first && it) {
     if (it.id === 'ender_eye' && t && t.id === B.end_portal_frame) { G.conn.send({ t: 'frame', x: t.x, y: t.y, z: t.z }); swing(); return; }
     if (it.id === 'ender_pearl' || it.id === 'ender_eye') { G.conn.send({ t: 'pearl' }); swing(); return; }
     if (it.id === 'firework_rocket' && P.gliding) { G.conn.send({ t: 'rocket' }); P.boostT = 20; return; }
-    if (it.id === 'glass_bottle') { const h = raycast(P.x, P.y + P.eye, P.z, viewBasis(P.yaw, P.pitch).f, 5, false, true); if (h && h.id === WATER) { G.conn.send({ t: 'fill', x: h.x, y: h.y, z: h.z }); swing(); return; } }
+    if (it.id === 'glass_bottle') { const h = raycast(P.x, P.y + P.eye, P.z, viewBasis(P.yaw, P.pitch).f, 5, false, true); if (h && (h.id === WATER || (h.id === B.cauldron && (h.v >> 12) > 0))) { G.conn.send({ t: 'fill', x: h.x, y: h.y, z: h.z }); swing(); return; } }
     if (POTIONS[it.id] && POTIONS[it.id].splash) { G.conn.send({ t: 'throw' }); swing(); return; }
     if (it.id === 'fishing_rod') { G.conn.send({ t: 'fish' }); swing(); return; }
   }
@@ -12274,6 +12897,7 @@ function useOrPlace(first) {
   if (first && t && BLOCKS[t.id].use && !(P.sneak && it)) { G.conn.send({ t: 'use', x: t.x, y: t.y, z: t.z }); swing(); return; }
   if (d && (d.name === 'bucket' || d.name === 'water_bucket' || d.name === 'lava_bucket')) { if (first) useBucket(d); return; }
   if (d && d.name === 'flint_and_steel') { if (first && t) { G.conn.send({ t: 'ignite', x: t.x + t.nx, y: t.y + t.ny, z: t.z + t.nz }); swing(); } return; }
+  if (d && d.group === 'mobEgg') { if (first && t) { G.conn.send({ t: 'spawnegg', x: t.x + t.nx, y: t.y + t.ny, z: t.z + t.nz, egg: it.id }); swing(); } return; }
   if (d && d.tool === 'hoe') { if (first && t && (t.id === GRASS || t.id === DIRT) && !(G.world.getB(t.x, t.y + 1, t.z) & 4095)) { G.world.setB(t.x, t.y, t.z, B.farmland); G.conn.send({ t: 'use', x: t.x, y: t.y, z: t.z }); SFX.block('place', 'gravel'); swing(); } return; }
   if (d && d.food && d.placer && t && first && ((t.id === B.farmland && t.ny === 1) || (d.name === 'sweet_berries' && t.ny === 1 && (t.id === GRASS || t.id === DIRT)) || (d.name === 'glow_berries' && t.ny === -1))) { placeBlock(); return; }
   if (d && d.food) { if (first && (P.food < 20 || d.food.always) && (!isCreative() || d.food.drink)) G.eat = 0; return; }
@@ -12301,6 +12925,7 @@ function placeBlock() {
   if (RSK[id] === 'trapdoor' && t.ny === -1) st |= 8;
   if (RSK[id] === 'door') { const a = w.getB(x, y + 1, z) & 4095; if (a && !REPLACE[a]) return; }
   if (BLOCKS[id].group === 'bed') { const L = LOOK[st & 3], a = w.getB(x + L[0], y, z + L[1]) & 4095; if (a && !REPLACE[a]) return; }
+  if (BLOCKS[id].group === 'chair') { const a = w.getB(x, y + 1, z) & 4095; if (a && !REPLACE[a]) return; }
   if (AXIS[id]) st = t.nx ? 1 : t.nz ? 2 : 0;
   if (BLOCKS[id].group === 'leaves') st = 1; // 手で置いた葉は消えない
   { const xs = xClientState(id, t); if (xs === null) return; if (xs !== undefined) st = xs; }
@@ -12312,6 +12937,7 @@ function placeBlock() {
   if (RSK[id] === 'door') w.setB(x, y + 1, z, id | ((st | 8) << 12));
   if (XK[id] === 'tall') w.setB(x, y + 1, z, id | (8 << 12));
   if (BLOCKS[id].group === 'bed') { const L = LOOK[st & 3]; w.setB(x + L[0], y, z + L[1], id | ((st | 4) << 12)); }
+  if (BLOCKS[id].group === 'chair') w.setB(x, y + 1, z, id | ((st | 4) << 12));
   SFX.block('place', soundOf(id));
   G.conn.send({ t: 'place', x, y, z, v });
   if (!isCreative()) { it.count--; if (it.count <= 0) G.inv[G.sel] = null; G.invDirty = true; }
@@ -12330,7 +12956,7 @@ function dropHeld(all) {
   G.conn.send({ t: 'drop', all }); G.invDirty = true; swing();
 }
 function tickInteract() {
-  if (G.breakCd > 0) G.breakCd--; if (G.placeCd > 0) G.placeCd--;
+  if (G.breakCd > 0) G.breakCd--;
   const play = G.state === 'game' && G.locked && !P.dead, t = G.target;
   if (G.lmb && play && mode() !== 'adventure') {
     if (isCreative()) { if (G.breakCd <= 0 && t && canBreakNow()) { breakBlock(t); G.breakCd = 5; swing(); } }
@@ -12355,7 +12981,7 @@ function tickInteract() {
       if (G.eat % 4 === 0) { SFX.play('eat'); const it = G.inv[G.sel]; if (it) spawnItemParticles(it.id); }
       if (G.eat >= 32) { G.conn.send({ t: 'eat' }); SFX.play('burp'); G.eat = (P.food + d.food.n < 20 || d.food.always) ? 0 : -1; }
     }
-  } else if (G.rmb && play && G.placeCd <= 0) { useOrPlace(false); G.placeCd = 4; }
+  } else if (G.rmb && play && G.tick - G.rmbT0 >= 10) { useOrPlace(false); } // 0.5秒（10tick）長押ししたら、そこから毎tick使う
 }
 /* ---------- パーティクル ---------- */
 function spawnBreakParticles(x, y, z, id) {
@@ -12496,12 +13122,18 @@ function useBucket(d) {
   const vb = viewBasis(P.yaw, P.pitch);
   if (d.name === 'bucket') {
     const t = raycast(P.x, P.y + P.eye, P.z, vb.f, 5, false, true);
-    if (!t || RENDER[t.id] !== R_LIQUID || (t.v >> 12) !== 0) return;
-    G.world.setB(t.x, t.y, t.z, 0);
-    G.conn.send({ t: 'bucket', x: t.x, y: t.y, z: t.z });
+    if (!t) return;
+    if (t.id === B.cauldron) { G.conn.send({ t: 'bucket', x: t.x, y: t.y, z: t.z }); }
+    else {
+      if (RENDER[t.id] !== R_LIQUID || (t.v >> 12) !== 0) return;
+      G.world.setB(t.x, t.y, t.z, 0);
+      G.conn.send({ t: 'bucket', x: t.x, y: t.y, z: t.z });
+    }
   } else {
     const t = G.target; if (!t) return;
-    const rep = REPLACE[t.id] && RENDER[t.id] !== R_LIQUID, x = rep ? t.x : t.x + t.nx, y = rep ? t.y : t.y + t.ny, z = rep ? t.z : t.z + t.nz;
+    let x, y, z;
+    if (t.id === B.cauldron) { x = t.x; y = t.y; z = t.z; }
+    else { const rep = REPLACE[t.id] && RENDER[t.id] !== R_LIQUID; x = rep ? t.x : t.x + t.nx; y = rep ? t.y : t.y + t.ny; z = rep ? t.z : t.z + t.nz; }
     G.conn.send({ t: 'bucket', x, y, z });
   }
   if (SFX.ctx && settings.vol) SFX.burst(900, 0.6, 0.25, 0.3); swing();
@@ -12677,7 +13309,7 @@ function pollGamepad() {
     P.yaw -= rx * s; P.pitch = clamp(P.pitch - ry * s * (settings.invY ? -1 : 1), -Math.PI / 2 + 0.001, Math.PI / 2 - 0.001);
     if (btn(7) && !was(7)) { if (!tryAttack()) { G.lmb = true; swing(); if (isCreative() && G.target && G.breakCd <= 0 && canBreakNow()) { breakBlock(G.target); G.breakCd = 5; } } }
     if (!btn(7) && was(7)) G.lmb = false;
-    if (btn(6) && !was(6)) { G.rmb = true; if (G.placeCd <= 0) { useOrPlace(true); G.placeCd = 4; } }
+    if (btn(6) && !was(6)) { G.rmb = true; G.rmbT0 = G.tick; useOrPlace(true); }
     if (!btn(6) && was(6)) { G.rmb = false; G.eat = -1; }
     if (down(4)) selectSlot((G.sel + 8) % 9); if (down(5)) selectSlot((G.sel + 1) % 9);
     if (down(3)) openInv();
@@ -13091,13 +13723,18 @@ function updEffectsHud() {
 // 弓を引く（右ボタンを押している間）
 function bowTick() {
   const it = G.inv[G.sel];
-  if (it && it.id === 'bow' && G.rmb && G.state === 'game' && !P.dead && (isCreative() || G.inv.some(x => x && x.id === 'arrow'))) { G.bowT = (G.bowT || 0) + 1; return; }
+  if (it && it.id === 'bow' && G.rmb && G.state === 'game' && !P.dead && (isCreative() || G.inv.some(x => x && (x.id === 'arrow' || (POTIONS[x.id] && POTIONS[x.id].arrow))))) { G.bowT = (G.bowT || 0) + 1; return; }
   if (G.bowT > 0) { if (it && it.id === 'bow') { G.conn.send({ t: 'shoot', n: G.bowT }); swing(); } G.bowT = 0; }
 }
 // 寝る
 function setSleeping(on, m) {
   G.sleeping = on; $('sleepov').classList.toggle('show', on);
   if (on && m) Object.assign(P, { x: m.x, y: m.y, z: m.z, vx: 0, vy: 0, vz: 0 });
+}
+// 椅子に座る（kei さんの依頼、2026-11-13）: 寝る時と違って画面は隠さず、見た目は座りポーズ（drawPlayerModel）で表す
+function setSitting(on, m) {
+  G.sitting = on;
+  if (on && m) { G.sitYaw = m.yaw; Object.assign(P, { x: m.x, y: m.y, z: m.z, yaw: m.yaw, px: m.x, py: m.y, pz: m.z, vx: 0, vy: 0, vz: 0 }); }
 }
 // 釣りの浮き（赤白）と糸
 function drawBobber(e, a, cx, cy, cz, sky) {
@@ -13202,7 +13839,7 @@ function openMap() {
   MAP.open = true; G.state = 'map'; MAP.dim = G.dim || 0; MAP.cx = P.x; MAP.cz = P.z;
   // 近くのタイルは作り直してもらう（変わっているかもしれない）
   const pcx = Math.floor(P.x) >> 4, pcz = Math.floor(P.z) >> 4; for (const k of [...MAP.tiles[MAP.dim].keys()]) { const [a, b] = k.split(',').map(Number); if (Math.abs(a - pcx) < 10 && Math.abs(b - pcz) < 10) MAP.tiles[MAP.dim].delete(k); }
-  $('mapov').classList.add('show'); document.exitPointerLock();
+  $('mapov').classList.add('show'); exitLock();
   G.conn.send({ t: 'mapq', dim: MAP.dim });
   mapUpdTabs(); mapDraw();
 }
@@ -13379,7 +14016,7 @@ function onRemoteMsg(m) {
 }
 function showDisconnected(text) {
   if (G.conn) { try { G.conn.close(); } catch (e) { } }
-  G.conn = null; G.state = 'title'; document.exitPointerLock();
+  G.conn = null; G.state = 'title'; exitLock();
   $('discMsg').textContent = text; show('disc');
 }
 // オペレーターの画面に出る「参加しようとしています」
@@ -13569,11 +14206,11 @@ function tvPunch(vp, cx, cy, cz) {
 // テレビの URL の入力欄
 function openTvDialog(t) {
   G.tvEdit = t; const cur = TV.list.get(tvKey(G.dim || 0, t.x, t.y, t.z));
-  $('tvurlin').value = cur ? cur.url : ''; $('tvdlg').classList.add('show'); G.state = 'tvdlg'; document.exitPointerLock(); setTimeout(() => $('tvurlin').focus(), 50);
+  $('tvurlin').value = cur ? cur.url : ''; $('tvdlg').classList.add('show'); G.state = 'tvdlg'; exitLock(); setTimeout(() => $('tvurlin').focus(), 50);
 }
 function closeTvDialog() { $('tvdlg').classList.remove('show'); if (G.state === 'tvdlg') { G.state = 'game'; lock(); } }
 // テレビの操作（F キー）: マウスでページを操作できるようにする
-function tvEnter() { TV.mode = true; G.state = 'tv'; $('clickplay').classList.remove('show'); document.exitPointerLock(); document.body.classList.add('tvmode'); }
+function tvEnter() { TV.mode = true; G.state = 'tv'; $('clickplay').classList.remove('show'); exitLock(); document.body.classList.add('tvmode'); }
 function tvLeave() { TV.mode = false; document.body.classList.remove('tvmode'); if (G.state === 'tv') { G.state = 'game'; lock(); } }
 function setupTV() {
   $('tvok').onclick = () => { const u = $('tvurlin').value.trim(), t = G.tvEdit; if (u && !/^https?:\/\//i.test(u)) { toast('http:// か https:// で始まる URL を入れてください'); return; } G.conn.send({ t: 'tvset', x: t.x, y: t.y, z: t.z, url: u }); closeTvDialog(); };
@@ -13581,6 +14218,37 @@ function setupTV() {
   $('tvcancel').onclick = closeTvDialog;
   $('tvurlin').addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') $('tvok').click(); if (e.key === 'Escape') closeTvDialog(); });
   $('tvback').onclick = tvLeave;
+}
+/* ---------- 看板の文字 ---------- */
+const SIGNS = new Map();
+const signKey = (dim, x, y, z) => dim + '|' + x + '|' + y + '|' + z;
+function signSet(m) { const k = signKey(m.dim || 0, m.x, m.y, m.z); if (m.text) SIGNS.set(k, m); else SIGNS.delete(k); }
+function openSignDialog(t) {
+  G.signEdit = t; const cur = SIGNS.get(signKey(G.dim || 0, t.x, t.y, t.z));
+  $('signtxt').value = cur ? cur.text : ''; $('signdlg').classList.add('show'); G.state = 'signdlg'; exitLock(); setTimeout(() => $('signtxt').focus(), 50);
+}
+function closeSignDialog() { $('signdlg').classList.remove('show'); if (G.state === 'signdlg') { G.state = 'game'; lock(); } }
+function setupSign() {
+  $('signok').onclick = () => { const txt = $('signtxt').value.slice(0, 100), t = G.signEdit; G.conn.send({ t: 'signset', x: t.x, y: t.y, z: t.z, text: txt }); closeSignDialog(); };
+  $('signclear').onclick = () => { const t = G.signEdit; G.conn.send({ t: 'signset', x: t.x, y: t.y, z: t.z, text: '' }); closeSignDialog(); };
+  $('signcancel').onclick = closeSignDialog;
+  $('signtxt').addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Escape') closeSignDialog(); });
+}
+// 頭の上の名前と同じやり方で、看板の文字を画面に重ねて表示する
+function updSignTags(vp, cx, cy, cz) {
+  const box = $('signtags'); if (!box) return;
+  const seen = new Set();
+  for (const sg of SIGNS.values()) {
+    if ((sg.dim || 0) !== (G.dim || 0)) continue;
+    const key = 's' + signKey(sg.dim || 0, sg.x, sg.y, sg.z); seen.add(key);
+    let tag = document.getElementById(key); if (!tag) { tag = el('div', 'signtag'); tag.id = key; box.appendChild(tag); }
+    tag.textContent = sg.text;
+    const x = sg.x + 0.5 - cx, y = sg.y + 0.7 - cy, z = sg.z + 0.5 - cz, cw = vp[3] * x + vp[7] * y + vp[11] * z + vp[15];
+    if (cw <= 0.1 || Math.hypot(x, y, z) > 12) { tag.style.display = 'none'; continue; }
+    const sx = (vp[0] * x + vp[4] * y + vp[8] * z + vp[12]) / cw, sy = (vp[1] * x + vp[5] * y + vp[9] * z + vp[13]) / cw;
+    tag.style.display = 'block'; tag.style.left = ((sx + 1) / 2 * innerWidth) + 'px'; tag.style.top = ((1 - sy) / 2 * innerHeight) + 'px';
+  }
+  for (const el2 of [...box.children]) if (!seen.has(el2.id)) el2.remove();
 }
 /* ---------- 操作キーの割り当て（統合版の設定「キーボードとマウス」） ---------- */
 const KEY_ACTIONS = [
@@ -13627,7 +14295,7 @@ function pressAction(a, e) {
     case 'chat': if (e) e.preventDefault(); openChat(''); break;
     case 'command': if (e) e.preventDefault(); openChat('/'); break;
     case 'attack': if (tryAttack()) return; G.lmb = true; swing(); if (isCreative() && G.target && G.breakCd <= 0 && canBreakNow()) { breakBlock(G.target); G.breakCd = 5; } break;
-    case 'use': G.rmb = true; if (G.placeCd <= 0) { useOrPlace(true); G.placeCd = 4; } break;
+    case 'use': G.rmb = true; G.rmbT0 = G.tick; useOrPlace(true); break;
     case 'pick': pickBlock(); break;
   }
 }
@@ -13672,7 +14340,7 @@ renderClickHelp();
 
 /* ---------- コマンドブロックとストラクチャーブロックの画面 ---------- */
 let blockDlg = null;
-function openBlockDlg(id, m) { blockDlg = { id, m }; $(id).classList.add('show'); G.state = id; keys.clear(); G.lmb = G.rmb = false; document.exitPointerLock(); }
+function openBlockDlg(id, m) { blockDlg = { id, m }; $(id).classList.add('show'); G.state = id; keys.clear(); G.lmb = G.rmb = false; exitLock(); }
 function closeBlockDlg() {
   if (!blockDlg) return; $(blockDlg.id).classList.remove('show'); blockDlg = null;
   if (G.state === 'cmddlg' || G.state === 'sbdlg') { G.state = 'game'; lock(); }
@@ -14551,7 +15219,7 @@ function drawHand(a, light, asp) {
 }
 // 落ちているアイテム（くるくる回って浮く。ブロックは小さな立方体、それ以外は絵）
 function drawEntities(a, cx, cy, cz, vp, eopts, sky) {
-  drawOthers(a, cx, cy, cz, sky); updNameTags(vp, cx, cy, cz);
+  drawOthers(a, cx, cy, cz, sky); updNameTags(vp, cx, cy, cz); updSignTags(vp, cx, cy, cz);
   if (!G.ents || !G.ents.size) { eflush(vp, gl.TRIANGLES, Object.assign({}, eopts, { alphaTest: 0.5 })); return; }
   for (const e of G.ents.values()) {
     if (e.kind === 'mob') { drawMob(e, a, cx, cy, cz, sky); continue; }
@@ -14611,7 +15279,8 @@ function render(a) {
     cx = lerp(C.px, C.x, k); cy = lerp(C.py, C.y, k); cz = lerp(C.pz, C.z, k); cb = C.ry !== undefined ? viewBasis(C.yaw + P.yaw - C.ry, clamp(C.pitch + P.pitch - C.rp, -Math.PI / 2 + 0.01, Math.PI / 2 - 0.01)) : viewBasis(C.pyaw + dyw * k, lerp(C.ppitch, C.pitch, k));
     if (k >= 1) { C.px = C.x; C.py = C.y; C.pz = C.z; C.pyaw = C.yaw; C.ppitch = C.pitch; } }
   if (G.portalPass) { const Q = G.portalPass; cx = Q.cx; cy = Q.cy; cz = Q.cz; cb = Q.cb; }
-  const fov = (settings.fov + 10) * Math.PI / 180 * lerp(P.pfovK, P.fovK, a);
+  const nauseaK = fxLvl('nausea') ? 1 + Math.sin(G.tick * 0.3) * 0.06 : 1;
+  const fov = (settings.fov + 10) * Math.PI / 180 * lerp(P.pfovK, P.fovK, a) * nauseaK;
   const far = settings.rd * 16 * 1.6 + 300, proj = M4.persp(fov, asp, 0.05, far);
   let view = viewMat(cb);
   if (settings.bob && !G.persp && !G.cam && !G.portalPass) {
@@ -14678,7 +15347,8 @@ function render(a) {
   const eopts = { fogCol, fog, mark: hexRGB(PLAINS_GRASS) };
   const plight = brightnessAt(px, py + 0.5, pz, sky);
   if ((G.persp || G.cam || G.portalPass) && !(P.props && P.props['giantsafe37:hide_local_body'] && !G.cam)) {
-    let M = M4.mul(M4.tr(px - cx, py - cy - (P.sneak ? 0.2 : 0) * (P.scale || 1), pz - cz), M4.ry(P.yaw)); if (P.scale && P.scale !== 1) M = M4.mul(M, M4.sc(P.scale, P.scale, P.scale));
+    const dispScale = P.scale === undefined ? 1 : lerp(P.pscale === undefined ? P.scale : P.pscale, P.scale, a); // tick の間も滑らかに大きさが変わる
+    let M = M4.mul(M4.tr(px - cx, py - cy - (P.sneak ? 0.2 : 0) * dispScale, pz - cz), M4.ry(P.yaw)); if (dispScale !== 1) M = M4.mul(M, M4.sc(dispScale, dispScale, dispScale));
     drawPlayerModel(M, plight, { limb: lerp(P.pwalk, P.walk, a) * 2.6, amt: P.limb, swing: P.swingOn ? lerp(P.pswing, P.swing, a) : 0, pitch: P.pitch, skinName: G.myDisplay, look: G.myLook, wp: [px, py, pz], cp: [cx, cy, cz], yaw: P.yaw });
     eflush(vp, gl.TRIANGLES, eopts);
   }
@@ -14735,11 +15405,12 @@ function render(a) {
   // 手と持ち物
   tvUpdate(view, fov, cx, cy, cz); tvPunch(vp, cx, cy, cz);
   if (VVon) vvEnd(vp, far, cy);
-  if (!G.persp && !G.cam && !settings.hideHand && G.hud && !(G.myLook && G.myLook.c)) drawHand(a, brightnessAt(ex, ey, ez, sky), asp);
+  if (!G.persp && !G.cam && !settings.hideHand && G.hud && !(G.myLook && G.myLook.c) && !isScoped()) drawHand(a, brightnessAt(ex, ey, ez, sky), asp);
   // ペーパードール（ダッシュ・スニーク・飛行・水中で出る）
   if (G.hud && !settings.hideDoll && (P.sprint || P.sneak || P.flying || P.inWater)) drawDoll(a, plight);
   $('portalfx').style.opacity = G.portalT > 0 ? Math.min(1, G.portalT / 80) * 0.75 : 0;
   $('hurt').style.opacity = P.hurtTime > 0 ? (P.hurtTime / 10) * 0.55 : 0;
+  { const sc = isScoped(), sfx = $('scopefx'); sfx.style.opacity = sc ? 1 : 0; if (sc) sfx.querySelector('span').textContent = G.scopeZoom + '倍'; }
   $('underwater').style.background = P.eyeWater ? 'rgba(20,60,170,.18)' : P.eyeLava ? 'rgba(255,80,0,.5)' : 'transparent';
   if (G.shot) {
     G.shot = false;
@@ -14885,6 +15556,22 @@ function selectSlot(i) {
 }
 function durBar(it) { const d = ITEMS[it.id]; if (!it.dmg || !d || !d.durability) return ''; const f = Math.max(0, 1 - it.dmg / d.durability); return `<span class="dur"><i style="width:${f * 100}%;background:hsl(${f * 120},90%,45%)"></i></span>`; }
 function slotHTML(it, showCount) { return it ? `<img src="${iconFor(it.id)}">${it.count > 1 && showCount ? `<span class="cnt">${it.count}</span>` : ''}${durBar(it)}` : ''; }
+// コンパスの針（ホットバーの絵を CSS で回すだけ。結びつけたロードストーン、無ければワールドスポーンを指す）
+function updateCompassNeedles() {
+  const hb = $('hotbar'); if (!hb) return;
+  const kids = hb.children;
+  for (let i = 0; i < 9 && i < kids.length; i++) {
+    const it = G.inv[i], img = kids[i].firstElementChild;
+    if (!img || !it || it.id !== 'compass') continue;
+    let target = null;
+    if (Array.isArray(it.ls) && it.ls.length === 4 && it.ls[0] === (G.dim || 0)) target = [it.ls[1], it.ls[3]];
+    else if ((G.dim || 0) === 0 && G.meta && G.meta.spawn) target = [G.meta.spawn[0], G.meta.spawn[2]];
+    if (!target) { img.style.transform = ''; continue; }
+    const dx = target[0] - P.x, dz = target[1] - P.z;
+    if (Math.hypot(dx, dz) < 0.1) { img.style.transform = ''; continue; }
+    img.style.transform = 'rotate(' + (Math.atan2(-dx, -dz) * 180 / Math.PI).toFixed(1) + 'deg)';
+  }
+}
 function updateHotbar() {
   let h = '';
   for (let i = 0; i < 9; i++) h += `<div class="hs${i === G.sel ? ' sel' : ''}">${slotHTML(G.inv[i], !isCreative())}</div>`;
@@ -14928,7 +15615,7 @@ function renderChat() {
 }
 function openChat(prefix) {
   G.state = 'chat'; $('chatbar').classList.add('show'); const i = $('chatin'); i.value = prefix || ''; chatHistPos = -1;
-  document.exitPointerLock(); setTimeout(() => i.focus(), 0); renderChat();
+  exitLock(); setTimeout(() => i.focus(), 0); renderChat();
 }
 function closeChat() { $('chatbar').classList.remove('show'); $('chatin').blur(); G.state = 'game'; show(null); lock(); renderChat(); }
 $('chatin').addEventListener('keydown', e => {
@@ -14947,6 +15634,8 @@ function lock() {
   if (TOUCH.on) { G.locked = true; $('clickplay').classList.remove('show'); return; } // タッチではポインターロックを使わない
   try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => showClickPlay()); } catch (e) { showClickPlay(); }
 }
+// iPad などポインターロック自体が無い端末では document.exitPointerLock が無いので、呼ぶ前に確認する
+function exitLock() { const f = document.exitPointerLock; if (f && document.pointerLockElement) f.call(document); }
 document.addEventListener('pointerlockchange', () => {
   G.locked = document.pointerLockElement === canvas;
   if (G.locked) $('clickplay').classList.remove('show');
@@ -14968,7 +15657,7 @@ $('btnQuit').onclick = async () => {
   G.state = 'title'; $('btnQuit').disabled = false; show('title');
 };
 // 死亡画面
-function showDeath(msg) { G.state = 'death'; G.lmb = G.rmb = false; $('deathMsg').textContent = msg || ''; show('death'); document.exitPointerLock(); }
+function showDeath(msg) { G.state = 'death'; G.lmb = G.rmb = false; $('deathMsg').textContent = msg || ''; show('death'); exitLock(); }
 $('btnRespawn').onclick = () => { G.conn.send({ t: 'respawn' }); };
 $('btnDeathQuit').onclick = async () => { await quitWorld(); G.state = 'title'; show('title'); };
 
@@ -15170,7 +15859,7 @@ function updCursor() {
 }
 function openWindow(kind, cont, data) {
   G.win = { kind, cont: cont || new Array(WINDOWS[kind].size).fill(null), data: data || null };
-  G.state = 'inv'; G.eat = -1; $('clickplay').classList.remove('show'); renderInv(); show('inv'); document.exitPointerLock();
+  G.state = 'inv'; G.eat = -1; $('clickplay').classList.remove('show'); renderInv(); show('inv'); exitLock();
 }
 function openInv() {
   if (P.dead) return; if (!isCreative()) G.conn.send({ t: 'open', kind: 'inventory' }); openWindow('inventory', [null, null, null, null, null, ...(G.armor || [null, null, null, null]).map(toStack), toStack(G.offhand)]); }
@@ -15240,13 +15929,15 @@ addEventListener('contextmenu', e => e.preventDefault());
 addEventListener('mousemove', e => {
   mouseX = e.clientX; mouseY = e.clientY;
   if (G.locked) {
-    const s = settings.sens * 0.003 * Math.PI / 180;
+    const s = settings.sens * 0.003 * Math.PI / 180 / (isScoped() ? Math.max(1, G.scopeZoom) : 1); // スコープを覗いている間は倍率に応じてゆっくり動く
     if (!(G.ilock && G.ilock[1])) { P.yaw -= e.movementX * s; P.pitch -= e.movementY * s * (settings.invY ? -1 : 1); }
     P.pitch = clamp(P.pitch, -Math.PI / 2 + 0.001, Math.PI / 2 - 0.001);
   } else if (G.state === 'inv') {
     updCursor(); const tip = $('tip'); tip.style.left = (mouseX + 14) + 'px'; tip.style.top = (mouseY - 30) + 'px';
   }
 });
+G.scopeZoom = 4;
+addEventListener('wheel', e => { if (isScoped()) { e.stopImmediatePropagation(); G.scopeZoom = clamp(G.scopeZoom + (e.deltaY < 0 ? 1 : -1), 1, 10); } }, { capture: true, passive: true });
 addEventListener('wheel', e => { if (G.state === 'game' && G.locked) selectSlot((G.sel + (e.deltaY > 0 ? 1 : 8)) % 9); }, { passive: true });
 
 /* ---------- 設定画面 ---------- */
@@ -15305,6 +15996,7 @@ $('btnPlay').onclick = showWorlds;
 $('btnClear').onclick = () => { $('clearov').classList.remove('show'); lock(); };
 setupMap();
 setupTV();
+setupSign();
 initServerUI();
 if (ADDON_INFO.length) { toast(`アドオンを ${ADDON_INFO.length} 個読み込みました（${ADDON_INFO.map(a => a.name).join('、')}）`, 5000); for (const a of ADDON_INFO) for (const e of a.errors) console.warn('アドオン', a.name, e); }
 $('btnWake').onclick = () => { G.conn.send({ t: 'wake' }); setSleeping(false); };
@@ -15384,6 +16076,8 @@ function onServerMsg(m) {
       break;
     }
     case 'chunk': if ((m.dim || 0) === (G.dim || 0)) { G.world.addChunk(m); for (const t of m.tv || []) tvSet(Object.assign({ dim: m.dim || 0 }, t)); } break;
+    case 'signs': for (const t of m.signs || []) signSet(Object.assign({ dim: m.dim || 0 }, t)); break;
+    case 'signtext': signSet(m); break;
     case 'tv': tvSet(m); break;
     case 'cmdui': openCmdDlg(m); break;
     case 'sbui': openSbDlg(m); break;
@@ -15395,7 +16089,7 @@ function onServerMsg(m) {
       if (m.respawn) P.dead = false;
       if (G.state === 'inv') closeInv(true);
       G.state = 'loading'; G.loadStart = performance.now(); $('loadBar').style.width = '0%';
-      $('loadMsg').textContent = m.dim === 1 ? 'ネザーに移動しています…' : m.dim === 2 ? 'エンドに移動しています…' : 'オーバーワールドに移動しています…'; $('bossbar').classList.remove('show'); show('loading'); document.exitPointerLock();
+      $('loadMsg').textContent = m.dim === 1 ? 'ネザーに移動しています…' : m.dim === 2 ? 'エンドに移動しています…' : m.dim === 3 ? 'リプレイの世界を読み込んでいます…' : 'オーバーワールドに移動しています…'; $('bossbar').classList.remove('show'); show('loading'); exitLock();
       break;
     case 'blocks': {
       const L = m.list;
@@ -15422,14 +16116,15 @@ function onServerMsg(m) {
     case 'stats': {
       P.fx = m.fx || []; updEffectsHud(); if (!m.sl && G.sleeping) setSleeping(false);
       $('fireov').style.display = m.fire && !isCreative() ? 'block' : 'none'; $('hud').classList.toggle('wither', !!m.wi);
+      $('darkov').style.opacity = fxLvl('blindness') ? 0.95 : fxLvl('darkness') ? 0.6 : 0;
       const lvl = P.xpl;
       Object.assign(P, { health: m.h, food: m.f, air: m.a, xpl: m.xl, xpf: m.xp });
       if (m.xl > lvl && lvl !== undefined && G.state !== 'loading') SFX.play('levelup');
-      if (m.gm && m.gm !== G.meta.gameMode) { G.meta.gameMode = m.gm; if (m.gm !== 'creative') P.flying = false; }
+      if (m.gm && m.gm !== G.meta.gameMode) { G.meta.gameMode = m.gm; if (m.gm !== 'creative' && m.gm !== 'spectator') P.flying = false; }
       P.dead = m.dead; G.invDirty = true;
       break;
     }
-    case 'gm': G.meta.gameMode = m.mode; if (m.mode !== 'creative') P.flying = false; G.invDirty = true; break;
+    case 'gm': G.meta.gameMode = m.mode; if (m.mode !== 'creative' && m.mode !== 'spectator') P.flying = false; G.invDirty = true; break;
     case 'hurt': P.hurtTime = 10; SFX.play('hurt'); break;
     case 'death': P.dead = true; showDeath(m.msg); if (m.msg) addChat(m.msg, 'info'); break;
     case 'tp':
@@ -15456,8 +16151,9 @@ function onServerMsg(m) {
       break;
     }
     case 'sleep': setSleeping(m.on, m); break;
+    case 'sit': setSitting(m.on, m); break;
     case 'boss': setBoss(m); break;
-    case 'clear': $('clearov').classList.add('show'); document.exitPointerLock(); break;
+    case 'clear': $('clearov').classList.add('show'); exitLock(); break;
     case 'boost': P.boostT = 20; break;
     case 'splash': spawnSplash(m); break;
     case 'kb': P.vx += m.x; P.vz += m.z; P.vy = Math.max(P.vy, m.y); break;
@@ -15547,7 +16243,7 @@ function formOpen(m) {
     const b = elh('button', 'afbtn', ''); b.textContent = noColor(m.submit) || '送信'; b.onclick = submit; body.appendChild(b);
   }
   AFORM.cur = m; AFORM.prev = G.state === 'form' ? AFORM.prev : G.state;
-  box.classList.add('show'); G.state = 'form'; keys.clear(); G.lmb = G.rmb = false; if (document.pointerLockElement) document.exitPointerLock();
+  box.classList.add('show'); G.state = 'form'; keys.clear(); G.lmb = G.rmb = false; if (document.pointerLockElement) exitLock();
   setTimeout(() => { const f = box.querySelector('input[type=text],button.afbtn'); if (f) f.focus(); }, 30);
 }
 function formSend(o) { const m = AFORM.cur; if (!m) return; G.conn && G.conn.send(Object.assign({ t: 'formr', fid: m.fid }, o)); formHide(); }
@@ -15652,7 +16348,12 @@ onServerMsg = function (m) {
       if (m.persp !== undefined) { G.cam = null; G.persp = m.persp; return; }
       if (m.fade) { const f = $('hurt'); return; }
       G.cam = Object.assign({ px: G.cam ? G.cam.x : m.x, py: G.cam ? G.cam.y : m.y, pz: G.cam ? G.cam.z : m.z, pyaw: G.cam ? G.cam.yaw : m.yaw, ppitch: G.cam ? G.cam.pitch : m.pitch }, m, { t0: performance.now() }); return;
-    case 'rot': P.yaw = m.yaw; P.pitch = m.pitch; return;
+    case 'rot': {
+      // スクリプトが向きを決めたとき（追尾スコープ・向き固定など）は、1 tick 分を瞬間移動せず、次の更新が来るまでの間に毎フレーム少しずつ動かす（通常のマウス操作と同じくらい滑らか）
+      let dy = m.yaw - P.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
+      G.rotTween = { fy: P.yaw, fp: P.pitch, ty: P.yaw + dy, tp: m.pitch, t0: performance.now(), dur: 55 };
+      return;
+    }
     case 'vel': if (m.set) { P.vx = m.x; P.vz = m.z; P.vy = m.y; } else { P.vx += m.x; P.vy += m.y; P.vz += m.z; } P.onGround = false; return;
     case 'ilock': G.ilock = m.lock || {}; return;
     case 'asound': addonSound(m); return;
@@ -15666,23 +16367,27 @@ onServerMsg = function (m) {
     }
     case 'ptcs': for (let i = 0; i < m.list.length; i += 4) addonParticle(m.list[i], m.list[i + 1], m.list[i + 2], m.list[i + 3]); return;
     case 'dbg': G.dbg = m.list || []; return;
+    case 'xray': G.xray = m.list || []; return;
     case 'emeta': if (G.ents) for (const o of m.list) { const e = G.ents.get(o.eid); if (e) { e.sc = o.sc; e.inv = o.inv; e.pt = o.pt; e.eq = o.eq; e.nt = o.nt; } } return;
   }
   _onServerMsg0(m);
 };
-// デバッグの図形（線で描く）
+// デバッグの図形（線で描く）・X線スキャナーの緑の枠
 const _drawEntities0 = drawEntities;
+const BOX_EDGE_PAIRS = [[[0, 0, 0], [1, 0, 0]], [[0, 1, 0], [1, 1, 0]], [[0, 0, 1], [1, 0, 1]], [[0, 1, 1], [1, 1, 1]], [[0, 0, 0], [0, 1, 0]], [[1, 0, 0], [1, 1, 0]], [[0, 0, 1], [0, 1, 1]], [[1, 0, 1], [1, 1, 1]], [[0, 0, 0], [0, 0, 1]], [[1, 0, 0], [1, 0, 1]], [[0, 1, 0], [0, 1, 1]], [[1, 1, 0], [1, 1, 1]]];
 drawEntities = function (a, cx, cy, cz, vp, eopts, sky) {
   _drawEntities0(a, cx, cy, cz, vp, eopts, sky);
-  if (!G.dbg || !G.dbg.length) return;
+  const hasDbg = G.dbg && G.dbg.length, hasXray = G.xray && G.xray.length;
+  if (!hasDbg && !hasXray) return;
   const L = TEX_INDEX.mob_skin, seg = (x0, y0, z0, x1, y1, z1, c) => { ev(x0 - cx, y0 - cy, z0 - cz, 0, 0, L, c[0], c[1], c[2], 1); ev(x1 - cx, y1 - cy, z1 - cz, 0, 0, L, c[0], c[1], c[2], 1); };
-  for (const s of G.dbg) {
+  const wireBox = (x0, y0, z0, x1, y1, z1, c) => { for (const [p0, p1] of BOX_EDGE_PAIRS) seg(p0[0] ? x1 : x0, p0[1] ? y1 : y0, p0[2] ? z1 : z0, p1[0] ? x1 : x0, p1[1] ? y1 : y0, p1[2] ? z1 : z0, c); };
+  if (hasDbg) for (const s of G.dbg) {
     const c = s.c || [1, 1, 1];
     if (s.k === 'line') seg(s.x, s.y, s.z, s.e[0], s.e[1], s.e[2], c);
-    else if (s.k === 'box') { const [bx, by, bz] = s.b, x0 = s.x - bx / 2, y0 = s.y - by / 2, z0 = s.z - bz / 2, x1 = x0 + bx, y1 = y0 + by, z1 = z0 + bz;
-      for (const [a0, a1] of [[[x0, y0, z0], [x1, y0, z0]], [[x0, y1, z0], [x1, y1, z0]], [[x0, y0, z1], [x1, y0, z1]], [[x0, y1, z1], [x1, y1, z1]], [[x0, y0, z0], [x0, y1, z0]], [[x1, y0, z0], [x1, y1, z0]], [[x0, y0, z1], [x0, y1, z1]], [[x1, y0, z1], [x1, y1, z1]], [[x0, y0, z0], [x0, y0, z1]], [[x1, y0, z0], [x1, y0, z1]], [[x0, y1, z0], [x0, y1, z1]], [[x1, y1, z0], [x1, y1, z1]]]) seg(a0[0], a0[1], a0[2], a1[0], a1[1], a1[2], c); }
+    else if (s.k === 'box') { const [bx, by, bz] = s.b; wireBox(s.x - bx / 2, s.y - by / 2, s.z - bz / 2, s.x + bx / 2, s.y + by / 2, s.z + bz / 2, c); }
     else if (s.k === 'sphere' || s.k === 'circle') { const r = s.r || 1; for (let i = 0; i < 24; i++) { const t0 = i / 24 * Math.PI * 2, t1 = (i + 1) / 24 * Math.PI * 2; seg(s.x + Math.cos(t0) * r, s.y, s.z + Math.sin(t0) * r, s.x + Math.cos(t1) * r, s.y, s.z + Math.sin(t1) * r, c); if (s.k === 'sphere') seg(s.x + Math.cos(t0) * r, s.y + Math.sin(t0) * r, s.z, s.x + Math.cos(t1) * r, s.y + Math.sin(t1) * r, s.z, c); } }
   }
+  if (hasXray) { const c = [0.25, 1, 0.3], e = 0.02; for (let i = 0; i < G.xray.length; i += 3) { const x = G.xray[i], y = G.xray[i + 1], z = G.xray[i + 2]; wireBox(x - e, y - e, z - e, x + 1 + e, y + 1 + e, z + 1 + e, c); } }
   gl.disable(gl.DEPTH_TEST); eflush(vp, gl.LINES, Object.assign({}, eopts, { alphaTest: -1 })); gl.enable(gl.DEPTH_TEST);
 };
 // 右クリック: サーバーに「使った」を知らせる（スクリプトの itemUse・itemUseOn・playerInteractWith〜 のもと）
@@ -15732,7 +16437,7 @@ const v3 = { dot: (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2], cross: (a, 
   const d = document.createElement('div'); d.id = 'atool'; document.body.appendChild(d);
   addEventListener('keydown', e => { if (G.state === 'atool' && e.code === 'Escape') { e.preventDefault(); e.stopPropagation(); toolClose(); } }, true);
 })();
-function toolOpen(build) { const box = $('atool'); box.innerHTML = ''; const ab = el('div', 'ab'); box.appendChild(ab); build(ab); box.classList.add('show'); G.toolPrev = G.state; G.state = 'atool'; keys.clear(); G.lmb = G.rmb = false; if (document.pointerLockElement) document.exitPointerLock(); }
+function toolOpen(build) { const box = $('atool'); box.innerHTML = ''; const ab = el('div', 'ab'); box.appendChild(ab); build(ab); box.classList.add('show'); G.toolPrev = G.state; G.state = 'atool'; keys.clear(); G.lmb = G.rmb = false; if (document.pointerLockElement) exitLock(); }
 function toolClose() { $('atool').classList.remove('show'); $('atool').innerHTML = ''; if (G.state === 'atool') { G.state = 'game'; lock(); } }
 const btn = (t, f, cls) => { const b = el('button', cls || '', t); b.onclick = f; return b; };
 
@@ -16001,6 +16706,16 @@ MOB_MODELS['alltestaddon:car'] = [
   { p: [0, 0, 0], b: [-10, 9, 20, -6, 12, 20.3], c: C_(200, 30, 30) }, { p: [0, 0, 0], b: [6, 9, 20, 10, 12, 20.3], c: C_(200, 30, 30) },
   ...[[-12, -13], [12, -13], [-12, 13], [12, 13]].map(([x, z]) => ({ p: [x, 4, z], b: [-2, -4, -4, 2, 4, 4], c: C_(28, 28, 32) })),
 ];
+MOB_MODELS.minecart = [
+  { p: [0, 0, 0], b: [-8, 0, -8, 8, 2, 8], c: C_(130, 130, 136) },
+  { p: [0, 0, 0], b: [-8, 2, -8, -6, 10, 8], c: C_(105, 105, 112) }, { p: [0, 0, 0], b: [6, 2, -8, 8, 10, 8], c: C_(105, 105, 112) },
+  { p: [0, 0, 0], b: [-8, 2, -8, 8, 10, -6], c: C_(105, 105, 112) }, { p: [0, 0, 0], b: [-8, 2, 6, 8, 10, 8], c: C_(105, 105, 112) },
+];
+MOB_MODELS.boat = [
+  { p: [0, 0, 0], b: [-10, -2, -18, 10, 3, 18], c: C_(150, 105, 62) },
+  { p: [0, 0, 0], b: [-11, 3, -18, -9, 8, 18], c: C_(150, 105, 62) }, { p: [0, 0, 0], b: [9, 3, -18, 11, 8, 18], c: C_(150, 105, 62) },
+  { p: [0, 0, 0], b: [-11, 3, -18, 11, 8, -16], c: C_(150, 105, 62) }, { p: [0, 0, 0], b: [-11, 3, 16, 11, 8, 18], c: C_(150, 105, 62) },
+];
 function carTick() {
   const R = G.riding, play = G.state === 'game' && G.locked;
   P.px = P.x; P.py = P.y; P.pz = P.z; P.peye = P.eye; P.pwalk = P.walk; P.pbob = P.bob; P.pfovK = P.fovK;
@@ -16033,9 +16748,100 @@ function carExit() {
   const R = G.riding; if (!R) return; G.riding = null; if (G.conn) G.conn.send({ t: 'unride' });
   P.x = R.x + Math.cos(R.yaw) * 1.5; P.z = R.z - Math.sin(R.yaw) * 1.5; P.y = R.y + 0.2; P.px = P.x; P.py = P.y; P.pz = P.z; P.fovK = 1;
 }
+/* --- ボート（水に浮く） --- */
+function vehExit() {
+  const R = G.riding; if (!R) return; G.riding = null; if (G.conn) G.conn.send({ t: 'unveh' });
+  P.x = R.x + Math.cos(R.yaw) * 1.2; P.z = R.z - Math.sin(R.yaw) * 1.2; P.y = R.y + 0.3; P.px = P.x; P.py = P.y; P.pz = P.z; P.fovK = 1;
+}
+function boatTick() {
+  const R = G.riding, play = G.state === 'game' && G.locked;
+  P.px = P.x; P.py = P.y; P.pz = P.z; P.peye = P.eye; P.pwalk = P.walk; P.pbob = P.bob; P.pfovK = P.fovK;
+  if (play && act('sneak')) { vehExit(); return; }
+  const fw = play ? (act('forward') ? 1 : 0) - (act('back') ? 1 : 0) : 0, st = play ? (act('right') ? 1 : 0) - (act('left') ? 1 : 0) : 0;
+  const maxF = 0.22;
+  if (fw > 0) R.speed = Math.min(maxF, (R.speed || 0) + 0.012);
+  else if (fw < 0) R.speed = Math.max(-maxF * 0.5, (R.speed || 0) - 0.01);
+  else R.speed = (R.speed || 0) * 0.94;
+  if (Math.abs(R.speed) < 0.003) R.speed = 0;
+  R.yaw -= st * 0.055 * Math.min(1, Math.abs(R.speed) / 0.1 + 0.3);
+  const dx = -Math.sin(R.yaw) * R.speed, dz = -Math.cos(R.yaw) * R.speed;
+  R.x += dx; R.z += dz;
+  const bx = Math.floor(R.x), bz = Math.floor(R.z);
+  let topY = null;
+  for (let y = Math.floor(R.y) + 2; y >= Math.floor(R.y) - 3; y--) if ((G.world.getB(bx, y, bz) & 4095) === WATER) { topY = y + 1; break; }
+  const targetY = topY !== null ? topY - 0.35 : R.y - 0.02;
+  R.y += (targetY - R.y) * 0.25;
+  P.x = R.x; P.y = R.y + 0.2; P.z = R.z; P.vx = P.vy = P.vz = 0; P.onGround = true; P.sneak = false; P.h = 1.8; P.eye += (1 - P.eye) * 0.5; P.walk += 0; P.bob = 0; P.fovK = 1;
+  if (G.conn) G.conn.send({ t: 'veh', x: +R.x.toFixed(3), y: +R.y.toFixed(3), z: +R.z.toFixed(3), yaw: +R.yaw.toFixed(3) });
+  if (G.tick % 5 === 0) showTitle({ k: 'actionbar', text: 'W:進む　S:後退　A・D:曲がる　Shift:降りる' });
+}
+/* --- トロッコ（レールの上を進む） --- */
+function railDirsFor(state) {
+  switch (state & 15) {
+    case 0: return [[0, -1, 0], [0, 1, 0]];
+    case 1: return [[1, 0, 0], [-1, 0, 0]];
+    case 2: return [[-1, 0, 0], [1, 0, 1]];
+    case 3: return [[1, 0, 0], [-1, 0, 1]];
+    case 4: return [[0, 1, 0], [0, -1, 1]];
+    case 5: return [[0, -1, 0], [0, 1, 1]];
+    case 6: return [[0, 1, 0], [1, 0, 0]];
+    case 7: return [[0, 1, 0], [-1, 0, 0]];
+    case 8: return [[0, -1, 0], [1, 0, 0]];
+    case 9: return [[0, -1, 0], [-1, 0, 0]];
+    default: return [[0, -1, 0], [0, 1, 0]];
+  }
+}
+function isRailBlock(id) { return !!(BLOCKS[id] && BLOCKS[id].group === 'rail'); }
+function cartTick() {
+  const R = G.riding, play = G.state === 'game' && G.locked;
+  P.px = P.x; P.py = P.y; P.pz = P.z; P.peye = P.eye; P.pwalk = P.walk; P.pbob = P.bob; P.pfovK = P.fovK;
+  if (play && act('sneak')) { vehExit(); return; }
+  if (!R.cell) {
+    const cx = Math.floor(R.x), cy = Math.floor(R.y), cz = Math.floor(R.z), id = G.world.getB(cx, cy, cz) & 4095;
+    R.dir = isRailBlock(id) ? railDirsFor(G.world.getB(cx, cy, cz) >> 12)[0] : [0, 0, -1];
+    R.cell = [cx, cy, cz]; R.speed = 0;
+  }
+  const fw = play ? (act('forward') ? 1 : 0) - (act('back') ? 1 : 0) : 0, maxF = 0.3;
+  if (fw > 0) R.speed = Math.min(maxF, R.speed + 0.02);
+  else if (fw < 0) R.speed = Math.max(-maxF * 0.5, R.speed - 0.015);
+  else R.speed *= 0.995;
+  if (R.dir[1] < 0) R.speed = Math.min(maxF * 1.4, R.speed + 0.01);
+  else if (R.dir[1] > 0) R.speed = Math.max(-maxF * 0.5, R.speed - 0.012);
+  if (Math.abs(R.speed) < 0.005 && !fw) R.speed = 0;
+  const dl = Math.hypot(R.dir[0], R.dir[2]) || 1;
+  let nx = R.x + R.dir[0] / dl * R.speed, ny = R.y + R.dir[1] * R.speed, nz = R.z + R.dir[2] / dl * R.speed;
+  const ncx = Math.floor(nx), ncz = Math.floor(nz);
+  if (ncx !== R.cell[0] || ncz !== R.cell[2]) {
+    let fy = R.cell[1];
+    for (const dy of [0, 1, -1]) if (isRailBlock(G.world.getB(ncx, R.cell[1] + dy, ncz) & 4095)) { fy = R.cell[1] + dy; break; }
+    const v2 = G.world.getB(ncx, fy, ncz), id2 = v2 & 4095;
+    if (isRailBlock(id2)) {
+      const ends = railDirsFor(v2 >> 12), back0 = -R.dir[0], back2 = -R.dir[2];
+      const nd = (ends[0][0] === back0 && ends[0][2] === back2) ? ends[1] : ends[0];
+      R.dir = nd; R.cell = [ncx, fy, ncz];
+      nx = ncx + 0.5; nz = ncz + 0.5; ny = fy + 0.15;
+    } else { R.speed = 0; nx = R.cell[0] + 0.5; nz = R.cell[2] + 0.5; ny = R.cell[1] + 0.15; }
+  } else {
+    if (R.dir[0] === 0) nx = R.cell[0] + 0.5;
+    if (R.dir[2] === 0) nz = R.cell[2] + 0.5;
+  }
+  R.x = nx; R.y = ny; R.z = nz;
+  if (R.dir[0] || R.dir[2]) R.yaw = Math.atan2(-R.dir[0], -R.dir[2]);
+  P.x = R.x; P.y = R.y + 0.4; P.z = R.z; P.vx = P.vy = P.vz = 0; P.onGround = true; P.sneak = false; P.h = 1.8; P.eye += (1.1 - P.eye) * 0.5; P.walk += 0; P.bob = 0; P.fovK = 1;
+  if (G.conn) G.conn.send({ t: 'veh', x: +R.x.toFixed(3), y: +R.y.toFixed(3), z: +R.z.toFixed(3), yaw: +R.yaw.toFixed(3) });
+  if (G.tick % 5 === 0) showTitle({ k: 'actionbar', text: 'W:進む　S:ブレーキ・バック　Shift:降りる' });
+}
 addEventListener('wheel', e => { if (G.riding && G.state === 'game') { e.stopImmediatePropagation(); G.riding.gear = clamp(G.riding.gear + (e.deltaY > 0 ? -1 : 1), 1, 5); } }, { capture: true, passive: true });
 const _tickPlayer0 = tickPlayer;
-tickPlayer = function () { if (G.riding) { if (!G.ents.has(G.riding.eid) && G.tick - G.riding.t0 > 40) { G.riding = null; } else return carTick(); } _tickPlayer0(); };
+tickPlayer = function () {
+  if (G.riding) {
+    if (!G.ents.has(G.riding.eid) && G.tick - G.riding.t0 > 40) { G.riding = null; }
+    else if (G.riding.kind === 'cart') return cartTick();
+    else if (G.riding.kind === 'boat') return boatTick();
+    else return carTick();
+  }
+  _tickPlayer0();
+};
 
 /* --- つなぐ --- */
 const _onServerMsg1 = onServerMsg;
@@ -16049,7 +16855,7 @@ onServerMsg = function (m) {
     case 'wbedit': wbEditor(m); return;
     case 'wb': { const k = portalKey(m.d, m.x, m.y, m.z); if (m.px) G.wb.set(k, { d: m.d, x: m.x, y: m.y, z: m.z, px: m.px.split('').map(c => parseInt(c, 16)) }); else G.wb.delete(k); return; }
     case 'wball': G.wb.clear(); for (const [d, x, y, z, px] of m.list || []) G.wb.set(portalKey(d, x, y, z), { d, x, y, z, px: px.split('').map(c => parseInt(c, 16)) }); return;
-    case 'ride': if (m.eid === null) { G.riding = null; return; } G.riding = { eid: m.eid, x: m.x, y: m.y, z: m.z, yaw: m.yaw, speed: 0, gear: 3, vy: 0, t0: G.tick }; P.yaw = m.yaw; P.pitch = -0.1; return;
+    case 'ride': if (m.eid === null) { G.riding = null; return; } G.riding = { eid: m.eid, kind: m.kind || 'car', x: m.x, y: m.y, z: m.z, yaw: m.yaw, speed: 0, gear: 3, vy: 0, t0: G.tick }; P.yaw = m.yaw; P.pitch = -0.1; return;
   }
   _onServerMsg1(m);
 };
@@ -16071,6 +16877,45 @@ drawEntities = function (a, cx, cy, cz, vp, eopts, sky) {
   _drawEntities1(a, cx, cy, cz, vp, eopts, sky);
   drawPortals(cx, cy, cz, vp);
 };
+// 確保アイテムのロープの見た目（捕まえた側の手から、捕らえられた人まで。壁には隠れる普通の見た目）
+function captureRopePos(name) {
+  if (name === G.myDisplay) return [P.x, P.y + 1.0, P.z];
+  const o = [...G.others.values()].find(q => q.name === name);
+  return o ? [o.x, o.y + 1.0, o.z] : null;
+}
+function captureRopePairs() {
+  const out = [], seen = new Set();
+  const add = (a, b) => { if (!a || !b) return; const k = a < b ? a + '|' + b : b + '|' + a; if (seen.has(k)) return; seen.add(k); const pa = captureRopePos(a), pb = captureRopePos(b); if (pa && pb) out.push([pa, pb]); };
+  if (G.myLook && G.myLook.cap && G.myLook.capBy) add(G.myDisplay, G.myLook.capBy);
+  if (G.myLook && G.myLook.capDrag) add(G.myDisplay, G.myLook.capDrag);
+  for (const o of G.others.values()) if (o.lk && o.lk.cap && o.lk.capBy) add(o.name, o.lk.capBy);
+  return out;
+}
+function drawRopeSeg(x0, y0, z0, x1, y1, z1, thick, color, cx, cy, cz, li) {
+  const dx = x1 - x0, dy = y1 - y0, dz = z1 - z0, len = Math.hypot(dx, dy, dz) || 0.001, horiz = Math.hypot(dx, dz);
+  const yaw = Math.atan2(-dx, -dz), pitch = Math.atan2(dy, horiz);
+  let m = M4.mul(M4.tr((x0 + x1) / 2 - cx, (y0 + y1) / 2 - cy, (z0 + z1) / 2 - cz), M4.ry(yaw)); m = M4.mul(m, M4.rx(pitch));
+  ebox(m, -thick, -thick, -len / 2, thick, thick, len / 2, all6(color), li);
+}
+const _drawEntities2 = drawEntities;
+drawEntities = function (a, cx, cy, cz, vp, eopts, sky) {
+  _drawEntities2(a, cx, cy, cz, vp, eopts, sky);
+  const ropes = captureRopePairs();
+  if (ropes.length) {
+    const color = [0.72, 0.56, 0.3], segs = 7;
+    for (const [pa, pb] of ropes) {
+      const dist = Math.hypot(pb[0] - pa[0], pb[1] - pa[1], pb[2] - pa[2]), sag = Math.min(0.6, dist * 0.18), li = brightnessAt((pa[0] + pb[0]) / 2, (pa[1] + pb[1]) / 2, (pa[2] + pb[2]) / 2, sky);
+      let prev = pa;
+      for (let i = 1; i <= segs; i++) {
+        const t = i / segs, dip = Math.sin(t * Math.PI) * sag;
+        const cur = i === segs ? pb : [pa[0] + (pb[0] - pa[0]) * t, pa[1] + (pb[1] - pa[1]) * t - dip, pa[2] + (pb[2] - pa[2]) * t];
+        drawRopeSeg(prev[0], prev[1], prev[2], cur[0], cur[1], cur[2], 0.035, color, cx, cy, cz, li);
+        prev = cur;
+      }
+    }
+    eflush(vp, gl.TRIANGLES, eopts);
+  }
+};
 const _gameTick1 = gameTick;
 gameTick = function () { _gameTick1(); portalTeleport(); };
 // 右クリックがホワイトボード・車のときは、ブロックを置いたりしない
@@ -16079,6 +16924,14 @@ useOrPlace = function (first) {
   const t = G.target, wbid = B['alltestaddon:whiteboard'];
   if (first && t && wbid !== undefined && t.id === wbid && !P.sneak) { const it = G.inv[G.sel]; if (!it || it.id !== 'alltestaddon:clear_wand') { G.conn.send({ t: 'iuse', tgt: { k: 'b', x: t.x, y: t.y, z: t.z, f: 0 } }); swing(); return; } }
   if (first) { const h = pickMob(isCreative() ? 5 : 3); if (h && h.e.type === 'alltestaddon:car' && (!t || h.dist < t.t)) { G.conn.send({ t: 'iuse', tgt: { k: 'e', eid: h.e.eid } }); return; } }
+  // トロッコ・ボート: 乗る（空の乗り物を見ている時）／置く（レール・水の上で）
+  if (first && !G.riding) {
+    const h = pickMob(isCreative() ? 5 : 3);
+    if (h && (h.e.type === 'minecart' || h.e.type === 'boat') && !h.e.rider && (!t || h.dist < t.t)) { G.conn.send({ t: 'iuse', tgt: { k: 'e', eid: h.e.eid } }); return; }
+    const it = G.inv[G.sel], d = it && ITEMS[it.id];
+    if (d && d.group === 'minecart' && t) { G.conn.send({ t: 'iuse', tgt: { k: 'b', x: t.x, y: t.y, z: t.z } }); swing(); return; }
+    if (d && d.group === 'boat') { const h = raycast(P.x, P.y + P.eye, P.z, viewBasis(P.yaw, P.pitch).f, 5, false, true); if (h && h.id === WATER) { G.conn.send({ t: 'iuse', tgt: { k: 'b', x: h.x, y: h.y, z: h.z } }); swing(); return; } }
+  }
   _useOrPlace1(first);
 };
 /* ---------- 見た目の状態（変身・手錠・足枷）・B キー・ポータルのなめらかな通り抜け ---------- */
@@ -16120,16 +16973,34 @@ drawPlayerModel = function (M, light, an) {
   if (lk && lk.i && an.other) return; // 透明化（ほかの人）
   if (lk && lk.m) return drawMorph(M, light, an, lk);
   let sk = an && an.skinName !== undefined ? skinOf(an.skinName) : null;
-  if (!sk && lk && (lk.c || lk.s)) { sk = defaultSkinObj(); if (!sk.mesh) sk.mesh = skinMesh(sk.px); }
+  if (!sk && lk && (lk.c || lk.s || lk.cap || lk.sit)) { sk = defaultSkinObj(); if (!sk.mesh) sk.mesh = skinMesh(sk.px); }
   if (!sk) return _drawPlayerModel0(M, light, an);
-  const S = 1.8 / 32, cuff = lk && lk.c, shk = lk && lk.s, sw = Math.sin(an.limb) * 0.9 * an.amt * (shk ? 0.25 : 1), att = an.swing > 0 && !cuff ? -Math.sin(an.swing * Math.PI) * 1.3 : 0, L = TEX_INDEX.mob_skin;
-  const METAL = [0.62, 0.63, 0.68], CHAIN = [0.35, 0.36, 0.4];
+  const S = 1.8 / 32, cuff = lk && lk.c, shk = lk && lk.s, cap = lk && lk.cap, sit = lk && lk.sit, sw = Math.sin(an.limb) * 0.9 * an.amt * (shk || cap || sit ? 0.25 : 1), att = an.swing > 0 && !cuff && !cap && !sit ? -Math.sin(an.swing * Math.PI) * 1.3 : 0, L = TEX_INDEX.mob_skin;
+  const METAL = [0.62, 0.63, 0.68], CHAIN = [0.35, 0.36, 0.4], ROPE = [0.72, 0.56, 0.3];
   const part = (px, py, pz, rx, rz, list, extra) => {
     let m = M4.mul(M, M4.tr(px * S, py * S, pz * S)); if (rx) m = M4.mul(m, M4.rx(rx)); if (rz) m = M4.mul(m, M4.rz(rz)); m = M4.mul(m, M4.sc(S, S, S));
     for (const o of list) { const sh = FACE_SHADE[o.f] * light, c = an.red ? [Math.min(1, o.c[0] * 0.6 + 0.5) * sh, o.c[1] * 0.4 * sh, o.c[2] * 0.4 * sh, 1] : [o.c[0] * sh, o.c[1] * sh, o.c[2] * sh, 1]; equad(o.q.map(p => M4.ap(m, p[0], p[1], p[2])), [0, 0, 1, 1], L, c); }
     if (extra) for (const [b, col] of extra) ebox(m, b[0], b[1], b[2], b[3], b[4], b[5], all6(col), light);
   };
   const ms = sk.mesh;
+  if (cap) {
+    // 確保アイテム: 座ったまま（脚を前に曲げ、全体を少し下げる）、胴体と腕をロープで巻く
+    const dy = -3.2;
+    part(2, 12 + dy, 0, -1.55, 0, ms.rleg, null); part(-2, 12 + dy, 0, -1.55, 0, ms.lleg, null);
+    part(0, 12 + dy, 0, 0, 0, ms.body, [[[-4.3, -0.6, -2.3, 4.3, 0.1, 2.3], ROPE], [[-4.3, 3.2, -2.3, 4.3, 3.9, 2.3], ROPE]]);
+    part(6, 22 + dy, 0, -1.0, -0.42, ms.rarm, [[[-2.3, -6.1, -2.3, 2.3, -5.4, 2.3], ROPE]]); part(-6, 22 + dy, 0, -1.0, 0.42, ms.larm, [[[-2.3, -6.1, -2.3, 2.3, -5.4, 2.3], ROPE]]);
+    part(0, 24 + dy, 0, an.pitch, 0, ms.head);
+    return;
+  }
+  if (sit) {
+    // 椅子に座る: 脚を前に曲げて、椅子の座面の高さ分だけ全体を下げる（ロープは無し、腕は自然に下げたまま）
+    const dy = -3.0;
+    part(2, 12 + dy, 0, -1.4, 0, ms.rleg, null); part(-2, 12 + dy, 0, -1.4, 0, ms.lleg, null);
+    part(0, 12 + dy, 0, 0, 0, ms.body, null);
+    part(6, 22 + dy, 0, 0, -0.08, ms.rarm, null); part(-6, 22 + dy, 0, 0, 0.08, ms.larm, null);
+    part(0, 24 + dy, 0, an.pitch, 0, ms.head);
+    return;
+  }
   // 足枷: 両方の足首に輪、間に鎖
   const ankle = shk ? [[[-2.4, -11.6, -2.4, 2.4, -9.8, 2.4], METAL]] : null;
   part(2, 12, 0, sw, 0, ms.rleg, ankle); part(-2, 12, 0, -sw, 0, ms.lleg, ankle);
@@ -16203,6 +17074,7 @@ function frame(now) {
   const dt = Math.min(250, now - last); last = now;
   if (!G.world) return;
   pollGamepad();
+  if (G.rotTween) { const k = Math.min(1, (now - G.rotTween.t0) / G.rotTween.dur); P.yaw = G.rotTween.fy + (G.rotTween.ty - G.rotTween.fy) * k; P.pitch = G.rotTween.fp + (G.rotTween.tp - G.rotTween.fp) * k; if (k >= 1) G.rotTween = null; }
   if (G.state === 'loading') {
     G.world.update(P.x, P.z, G.frame);
     const p = G.joined ? G.world.readiness(P.x, P.z, 2) : 0;
@@ -16219,6 +17091,7 @@ function frame(now) {
   render(['game', 'inv', 'chat', 'death'].includes(G.state) ? acc / 50 : 1);
   if (G.invDirty) { updateHotbar(); G.invDirty = false; }
   if (G.frame % 5 === 0) updateCoords();
+  updateCompassNeedles();
 }
 
 /* ---------- 起動 ---------- */
